@@ -59,7 +59,7 @@ typedef CK_RV (*Finalize)(CK_VOID_PTR);
 
 // Global variables (consider encapsulating these in a class in a real application)
 bool isInitialized = false;
-CK_SESSION_HANDLE hSession = 0;
+CK_SESSION_HANDLE hhSession = 0;
 CK_OBJECT_HANDLE hPrivate = 0; // Handle for a private key.
 CK_OBJECT_HANDLE hObject = 0;
 CK_ULONG ulObjectCount = 0;
@@ -113,7 +113,7 @@ void cleanUp() {
         delete[] decrypted;
         decrypted = nullptr;
     }
-    hSession = 0;
+    hhSession = 0;
     // Reset other globals if needed
 }
 
@@ -157,7 +157,7 @@ CK_RV initializePKCS11() {
 
 CK_RV openSession(const char *token_pin, JNIEnv *env, jstring jStr) {
 
-    if (hSession != 0) {
+    if (hhSession != 0) {
         return CKR_OK;
     }
 
@@ -222,7 +222,7 @@ CK_RV openSession(const char *token_pin, JNIEnv *env, jstring jStr) {
         std::cerr << "Failed to open session" << rv << std::endl;
         return rv;
     }
-    hSession = session;
+    hhSession = session;
     std::cout << "opened session" << std::endl;
     return CKR_OK;
 }
@@ -272,7 +272,7 @@ Java_com_example_trustoken_1starter_TrusToken_login(JNIEnv *env, jobject mainAct
         return logErrorAndCleanup(env, "Failed to find C_Login symbol");
     }
 
-    rv = c_login(hSession, CKU_USER, (CK_BYTE_PTR) token_pin, strlen(token_pin));
+    rv = c_login(hhSession, CKU_USER, (CK_BYTE_PTR) token_pin, strlen(token_pin));
 //    env->ReleaseStringUTFChars(jStr, token_pin);  // Always release the string
     if (rv != CKR_OK) {
         return logErrorAndCleanup(env, "Failed to login", rv);
@@ -304,20 +304,20 @@ Java_com_example_trustoken_1starter_TrusToken_readCertificate(JNIEnv *env,
             {CKA_CERTIFICATE_TYPE, &certType,  sizeof(certType)}
     };
 
-    CK_RV rv = c_findObjectsInit(hSession, certTemplate, 2);
+    CK_RV rv = c_findObjectsInit(hhSession, certTemplate, 2);
     if (rv != CKR_OK) {
         return logErrorAndCleanup(env, "Failed to initialize object search", rv);
     }
 
     CK_OBJECT_HANDLE certObj;
     CK_ULONG objCount = 0;
-    rv = c_findObjects(hSession, &certObj, 1, &objCount);
+    rv = c_findObjects(hhSession, &certObj, 1, &objCount);
     if (rv != CKR_OK || objCount == 0) {
-        c_findObjectsFinal(hSession);
+        c_findObjectsFinal(hhSession);
         return logErrorAndCleanup(env, "Failed to find certificate object", rv);
     }
 
-    rv = c_findObjectsFinal(hSession);
+    rv = c_findObjectsFinal(hhSession);
     if (rv != CKR_OK) {
         return logErrorAndCleanup(env, "Failed to finalize object search", rv);
     }
@@ -326,7 +326,7 @@ Java_com_example_trustoken_1starter_TrusToken_readCertificate(JNIEnv *env,
             {CKA_VALUE, NULL_PTR, 0}
     };
 
-    rv = c_getAttributeValue(hSession, certObj, certValueTemplate, 1);
+    rv = c_getAttributeValue(hhSession, certObj, certValueTemplate, 1);
     if (rv != CKR_OK) {
         return logErrorAndCleanup(env, "Failed to get certificate value size", rv);
     }
@@ -338,7 +338,7 @@ Java_com_example_trustoken_1starter_TrusToken_readCertificate(JNIEnv *env,
     }
 
     certValueTemplate[0].pValue = certValue;
-    rv = c_getAttributeValue(hSession, certObj, certValueTemplate, 1);
+    rv = c_getAttributeValue(hhSession, certObj, certValueTemplate, 1);
     if (rv != CKR_OK) {
         free(certValue);
         return logErrorAndCleanup(env, "Failed to get certificate value", rv);
@@ -364,16 +364,16 @@ Java_com_example_trustoken_1starter_TrusToken_logout(JNIEnv *env, jobject thiz) 
         return logErrorAndCleanup(env, "Failed to find symbols");
     }
 
-    CK_RV rv = logout(hSession);
+    CK_RV rv = logout(hhSession);
     if (rv != CKR_OK) {
         return logErrorAndCleanup(env, "Failed to logout", rv);
     }
 
-    rv = closeSession(hSession);
+    rv = closeSession(hhSession);
     if (rv != CKR_OK) {
         return logErrorAndCleanup(env, "Failed to close session", rv);
     }
-    hSession = 0;
+    hhSession = 0;
 
 //    rv = finalize(NULL_PTR);
 //    if (rv != CKR_OK) {
@@ -427,15 +427,15 @@ Java_com_example_trustoken_1starter_TrusToken_signData(JNIEnv *env, jobject main
     CK_ATTRIBUTE templPriv[] = {{CKA_CLASS, &keyClassPriv, sizeof(keyClassPriv)}};
     CK_ULONG templPrivateSize = sizeof(templPriv) / sizeof(CK_ATTRIBUTE);
 
-    CK_RV rv = c_findObjectsInit(hSession, templPriv, templPrivateSize);
+    CK_RV rv = c_findObjectsInit(hhSession, templPriv, templPrivateSize);
     if (rv != CKR_OK) {
         env->ReleaseStringUTFChars(jPlainText, plain_data);
         return logErrorAndCleanup(env, "Failed to initiate find objects", rv);
     }
 
-    rv = c_findObjects(hSession, &hObject, 1, &ulObjectCount);
+    rv = c_findObjects(hhSession, &hObject, 1, &ulObjectCount);
     if (rv != CKR_OK || ulObjectCount == 0) {
-        findObjectsFinal(hSession);
+        findObjectsFinal(hhSession);
         env->ReleaseStringUTFChars(jPlainText, plain_data);
         return logErrorAndCleanup(env, "Failed to find private key object", rv);
     }
@@ -443,15 +443,15 @@ Java_com_example_trustoken_1starter_TrusToken_signData(JNIEnv *env, jobject main
     // Read an attribute (e.g. label) to confirm the object.
     CK_UTF8CHAR label[32];
     CK_ATTRIBUTE readtemplPrivate[] = {{CKA_LABEL, label, sizeof(label)}};
-    rv = c_getAttributeValue(hSession, hObject, readtemplPrivate, 1);
+    rv = c_getAttributeValue(hhSession, hObject, readtemplPrivate, 1);
     if (rv == CKR_OK) {
         hPrivate = hObject;
     } else {
-        findObjectsFinal(hSession);
+        findObjectsFinal(hhSession);
         env->ReleaseStringUTFChars(jPlainText, plain_data);
         return logErrorAndCleanup(env, "Failed to read private key object", rv);
     }
-    rv = findObjectsFinal(hSession);
+    rv = findObjectsFinal(hhSession);
     if (rv != CKR_OK) {
         env->ReleaseStringUTFChars(jPlainText, plain_data);
         return logErrorAndCleanup(env, "Failed to finalize find objects", rv);
@@ -459,13 +459,13 @@ Java_com_example_trustoken_1starter_TrusToken_signData(JNIEnv *env, jobject main
 
     // Initialize signing.
     CK_MECHANISM mech = {CKM_SHA256_RSA_PKCS};
-    rv = signInit(hSession, &mech, hPrivate);
+    rv = signInit(hhSession, &mech, hPrivate);
     if (rv != CKR_OK) {
         env->ReleaseStringUTFChars(jPlainText, plain_data);
         return logErrorAndCleanup(env, "Failed to initialize signing", rv);
     }
 
-    rv = sign(hSession, (CK_BYTE *) plain_data, strlen(plain_data), signature, &sigLen);
+    rv = sign(hhSession, (CK_BYTE *) plain_data, strlen(plain_data), signature, &sigLen);
     // Release the plain text regardless of sign result.
     env->ReleaseStringUTFChars(jPlainText, plain_data);
     if (rv != CKR_OK) {
@@ -514,12 +514,12 @@ Java_com_example_trustoken_1starter_TrusToken_verify(JNIEnv *env, jobject thiz, 
 //    }
 
     CK_MECHANISM mech = {CKM_SHA256_RSA_PKCS};
-    CK_RV rv = verifyInit(hSession, &mech, 5000);
+    CK_RV rv = verifyInit(hhSession, &mech, 5000);
     if (rv != CKR_OK) {
         return logErrorAndCleanup(env, "Failed to initialize verify", rv);
     }
 
-    rv = verify(hSession, (CK_BYTE_PTR) plain_text, strlen(plain_text), signaturePtr, sigLen);
+    rv = verify(hhSession, (CK_BYTE_PTR) plain_text, strlen(plain_text), signaturePtr, sigLen);
     if (rv != CKR_OK) {
         return env->NewStringUTF("Verification failed");
     }
@@ -560,14 +560,14 @@ Java_com_example_trustoken_1starter_TrusToken_encrypt(JNIEnv *env, jobject mainA
     }
 
     CK_MECHANISM mech = {CKM_SHA256_RSA_PKCS};
-    CK_RV rv = encryptInit(hSession, &mech, 5000);
+    CK_RV rv = encryptInit(hhSession, &mech, 5000);
     if (rv != CKR_OK) {
         env->ReleaseStringUTFChars(jPlainText, plain_data_encrypt);
         return logErrorAndCleanup(env, "Failed to initialize encryption", rv);
     }
 
     // First call to determine required buffer size.
-    rv = encrypt(hSession, (CK_BYTE_PTR) plain_data_encrypt, strlen(plain_data_encrypt), NULL,
+    rv = encrypt(hhSession, (CK_BYTE_PTR) plain_data_encrypt, strlen(plain_data_encrypt), NULL,
                  &encLen);
     if (rv != CKR_OK) {
         env->ReleaseStringUTFChars(jPlainText, plain_data_encrypt);
@@ -575,7 +575,7 @@ Java_com_example_trustoken_1starter_TrusToken_encrypt(JNIEnv *env, jobject mainA
     }
 
     encrypted = new CK_BYTE[encLen];
-    rv = encrypt(hSession, (CK_BYTE_PTR) plain_data_encrypt, strlen(plain_data_encrypt), encrypted,
+    rv = encrypt(hhSession, (CK_BYTE_PTR) plain_data_encrypt, strlen(plain_data_encrypt), encrypted,
                  &encLen);
     env->ReleaseStringUTFChars(jPlainText, plain_data_encrypt);
     if (rv != CKR_OK) {
@@ -621,21 +621,21 @@ Java_com_example_trustoken_1starter_TrusToken_decrypt(JNIEnv *env, jobject thiz,
     }
 
     CK_MECHANISM mech = {CKM_SHA256_RSA_PKCS};
-    CK_RV rv = decryptInit(hSession, &mech, hPrivate);
+    CK_RV rv = decryptInit(hhSession, &mech, hPrivate);
     if (rv != CKR_OK) {
         env->ReleaseStringUTFChars(jStr, encrypted_data);
         return logErrorAndCleanup(env, "Failed to initialize decryption", rv);
     }
 
     // First call to get the size required.
-    rv = decrypt(hSession, encrypted, encLen, nullptr, &decLen);
+    rv = decrypt(hhSession, encrypted, encLen, nullptr, &decLen);
     if (rv != CKR_OK) {
         env->ReleaseStringUTFChars(jStr, encrypted_data);
         return logErrorAndCleanup(env, "Failed to get decryption buffer size", rv);
     }
 
     decrypted = new CK_BYTE[decLen];
-    rv = decrypt(hSession, encrypted, encLen, decrypted, &decLen);
+    rv = decrypt(hhSession, encrypted, encLen, decrypted, &decLen);
     env->ReleaseStringUTFChars(jStr, encrypted_data);
     if (rv != CKR_OK) {
         delete[] decrypted;
@@ -653,4 +653,195 @@ Java_com_example_trustoken_1starter_TrusToken_decrypt(JNIEnv *env, jobject thiz,
 
     return env->NewStringUTF(hexDecryptedData.c_str());
 }
+
+// Forward declarations of functions from pkcs11_test.cpp
+// Initialization and general info functions
+extern void testInitialize();
+extern void testGetFunctionList();
+extern void testGetInfo();
+extern void testGetSlotList();
+extern void testGetSlotInfo();
+extern void testGetTokenInfo();
+extern void testGetMechanismList();
+extern void testGetMechanismInfo();
+
+// Session management functions
+extern void testOpenSession();
+extern void testGetSessionInfo();
+extern void testLogin();
+extern void testLogout();
+extern void testCloseSession();
+extern void testCloseAllSessions();
+
+// Token/PIN management functions
+extern void testInitToken();
+extern void testInitPIN();
+extern void testSetPIN();
+
+// Random number generation functions
+extern void testSeedRandom();
+extern void testGenerateRandom();
+
+// Object management functions
+extern void testCreateObject();
+extern void testCopyObject();
+extern void testDestroyObject();
+extern void testGetObjectSize();
+extern void testGetAttributeValue();
+extern void testSetAttributeValue();
+extern void testFindObjectsInit();
+extern void testFindObjects();
+extern void testFindObjectsFinal();
+
+// Key management functions
+extern void testGenerateKeyPair();
+extern void testGenerateKey();
+extern void testUnwrapKey();
+extern void testDeriveKey();
+
+// Digest/hash operations
+extern void testDigest();
+extern void testDigestInit();
+extern void testDigestUpdate();
+extern void testDigestFinal();
+extern void testDigestKey();
+
+// Sign/verify operations
+extern void testSign();
+extern void testSignInit();
+extern void testSignUpdate();
+extern void testSignFinal();
+extern void testVerify();
+extern void testVerifyInit();
+extern void testSignRecoverInit();
+extern void testSignRecover();
+
+// Encrypt/decrypt operations
+extern void testEncrypt();
+extern void testEncryptInit();
+extern void testDecrypt();
+extern void testDecryptInit();
+
+// Combined operations
+extern void testSignEncryptUpdate();
+extern void testDecryptVerifyUpdate();
+extern void testDigestEncryptUpdate();
+extern void testDecryptDigestUpdate();
+
+// State management
+extern void testGetOperationState();
+extern void testSetOperationState();
+
+// Event handling
+extern void testWaitForSlotEvent();
+
+// Cleanup
+extern void testFinalize();
+extern void resetState();
+extern void init();
+
+// Helper class to capture stdout to a string
+class StdoutCapture {
+private:
+    std::stringstream buffer;
+    std::streambuf* oldCout;
+
+public:
+    StdoutCapture() {
+        oldCout = std::cout.rdbuf(buffer.rdbuf());
+    }
+
+    ~StdoutCapture() {
+        std::cout.rdbuf(oldCout);
+    }
+
+    std::string getString() {
+        return buffer.str();
+    }
+};
+
+int initCalled = 0;
+// JNI function implementations for PKCS11FunctionsActivity
+JNIEXPORT jstring JNICALL
+Java_com_example_trustoken_1starter_PKCS11FunctionsActivity_testFunctions(JNIEnv *env, jobject thiz, jstring jFunctionName) {
+    StdoutCapture capture;
+    if(initCalled == 0){
+        init();
+        initCalled = 1;
+    }
+    const char* functionName = env->GetStringUTFChars(jFunctionName, nullptr);
+    try {
+        resetState(); // Make sure we start clean
+        if (strcmp(functionName, "C_Initialize") == 0) testInitialize();
+        else if (strcmp(functionName, "C_GetFunctionList") == 0) testGetFunctionList();
+        else if (strcmp(functionName, "C_GetInfo") == 0) testGetInfo();
+        else if (strcmp(functionName, "C_GetSlotList") == 0) testGetSlotList();
+        else if (strcmp(functionName, "C_GetSlotInfo") == 0) testGetSlotInfo();
+        else if (strcmp(functionName, "C_GetTokenInfo") == 0) testGetTokenInfo();
+        else if (strcmp(functionName, "C_GetMechanismList") == 0) testGetMechanismList();
+        else if (strcmp(functionName, "C_GetMechanismInfo") == 0) testGetMechanismInfo();
+        else if (strcmp(functionName, "C_OpenSession") == 0) testOpenSession();
+        else if (strcmp(functionName, "C_GetSessionInfo") == 0) testGetSessionInfo();
+        else if (strcmp(functionName, "C_Login") == 0) testLogin();
+        else if (strcmp(functionName, "C_Logout") == 0) testLogout();
+        else if (strcmp(functionName, "C_CloseSession") == 0) testCloseSession();
+        else if (strcmp(functionName, "C_CloseAllSessions") == 0) testCloseAllSessions();
+        else if (strcmp(functionName, "C_InitToken") == 0) testInitToken();
+        else if (strcmp(functionName, "C_InitPIN") == 0) testInitPIN();
+        else if (strcmp(functionName, "C_SetPIN") == 0) testSetPIN();
+        else if (strcmp(functionName, "C_SeedRandom") == 0) testSeedRandom();
+        else if (strcmp(functionName, "C_GenerateRandom") == 0) testGenerateRandom();
+        else if (strcmp(functionName, "C_CreateObject") == 0) testCreateObject();
+        else if (strcmp(functionName, "C_CopyObject") == 0) testCopyObject();
+        else if (strcmp(functionName, "C_DestroyObject") == 0) testDestroyObject();
+        else if (strcmp(functionName, "C_GetObjectSize") == 0) testGetObjectSize();
+        else if (strcmp(functionName, "C_GetAttributeValue") == 0) testGetAttributeValue();
+        else if (strcmp(functionName, "C_SetAttributeValue") == 0) testSetAttributeValue();
+        else if (strcmp(functionName, "C_FindObjectsInit") == 0) testFindObjectsInit();
+        else if (strcmp(functionName, "C_FindObjects") == 0) testFindObjects();
+        else if (strcmp(functionName, "C_FindObjectsFinal") == 0) testFindObjectsFinal();
+        else if (strcmp(functionName, "C_GenerateKeyPair") == 0) testGenerateKeyPair();
+        else if (strcmp(functionName, "C_GenerateKey") == 0) testGenerateKey();
+        else if (strcmp(functionName, "C_UnwrapKey") == 0) testUnwrapKey();
+        else if (strcmp(functionName, "C_DeriveKey") == 0) testDeriveKey();
+        else if (strcmp(functionName, "C_DigestInit") == 0) testDigestInit();
+        else if (strcmp(functionName, "C_Digest") == 0) testDigest();
+        else if (strcmp(functionName, "C_DigestUpdate") == 0) testDigestUpdate();
+        else if (strcmp(functionName, "C_DigestFinal") == 0) testDigestFinal();
+        else if (strcmp(functionName, "C_DigestKey") == 0) testDigestKey();
+        else if (strcmp(functionName, "C_SignInit") == 0) testSignInit();
+        else if (strcmp(functionName, "C_Sign") == 0) testSign();
+        else if (strcmp(functionName, "C_SignUpdate") == 0) testSignUpdate();
+        else if (strcmp(functionName, "C_SignFinal") == 0) testSignFinal();
+        else if (strcmp(functionName, "C_VerifyInit") == 0) testVerifyInit();
+        else if (strcmp(functionName, "C_Verify") == 0) testVerify();
+        else if (strcmp(functionName, "C_SignRecoverInit") == 0) testSignRecoverInit();
+        else if (strcmp(functionName, "C_SignRecover") == 0) testSignRecover();
+        else if (strcmp(functionName, "C_EncryptInit") == 0) testEncryptInit();
+        else if (strcmp(functionName, "C_Encrypt") == 0) testEncrypt();
+        else if (strcmp(functionName, "C_DecryptInit") == 0) testDecryptInit();
+        else if (strcmp(functionName, "C_Decrypt") == 0) testDecrypt();
+        else if (strcmp(functionName, "C_GetOperationState") == 0) testGetOperationState();
+        else if (strcmp(functionName, "C_SetOperationState") == 0) testSetOperationState();
+        else if (strcmp(functionName, "C_SignEncryptUpdate") == 0) testSignEncryptUpdate();
+        else if (strcmp(functionName, "C_DecryptVerifyUpdate") == 0) testDecryptVerifyUpdate();
+        else if (strcmp(functionName, "C_DigestEncryptUpdate") == 0) testDigestEncryptUpdate();
+        else if (strcmp(functionName, "C_DecryptDigestUpdate") == 0) testDecryptDigestUpdate();
+        else if (strcmp(functionName, "C_WaitForSlotEvent") == 0) testWaitForSlotEvent();
+        else if (strcmp(functionName, "C_Finalize") == 0) testFinalize();
+        else capture.getString().append("Unknown function");
+        env->ReleaseStringUTFChars(jFunctionName, functionName);
+        return env->NewStringUTF(capture.getString().c_str());
+    } catch (const std::exception& e) {
+        std::string error = "Exception during testInitialize: ";
+        error += e.what();
+        LOGE("%s", error.c_str());
+        return env->NewStringUTF(error.c_str());
+    } catch (...) {
+        LOGE("Unknown exception during testInitialize");
+        return env->NewStringUTF("Unknown exception occurred during testInitialize");
+    }
+}
+
+
 } // extern "C"

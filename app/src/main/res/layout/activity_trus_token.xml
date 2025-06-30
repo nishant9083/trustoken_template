@@ -19,6 +19,15 @@
             android:text="Detect Token"
             android:textSize="15sp" />
 
+
+        <Button
+            android:id="@+id/pkcs11_functions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="15dp"
+            android:text="PKCS#11 Functions"
+            android:textSize="15sp" />
+
         <TextView
             android:id="@+id/token_name"
             android:layout_width="match_parent"
@@ -158,6 +167,7 @@
                 android:text="Logout"
                 android:textSize="15sp" />
         </LinearLayout>
+
     </LinearLayout>
 
 </ScrollView>

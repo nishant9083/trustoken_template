@@ -23,6 +23,7 @@ class TrusToken : AppCompatActivity() {
     private lateinit var btnDecrypt: Button
     private lateinit var btnLogout: Button
     private lateinit var btnClear: Button
+    private lateinit var btnPkcs11Functions: Button
 
     private lateinit var tvTokenName: TextView
     private lateinit var tvSignature: TextView
@@ -69,6 +70,7 @@ class TrusToken : AppCompatActivity() {
         btnDecrypt = findViewById(R.id.decrypt)
         btnLogout = findViewById(R.id.logout)
         btnClear = findViewById(R.id.clear_token)
+        btnPkcs11Functions = findViewById(R.id.pkcs11_functions)
 
         tvTokenName = findViewById(R.id.token_name)
         tvSignature = findViewById(R.id.signature)
@@ -125,7 +127,6 @@ class TrusToken : AppCompatActivity() {
 
         btnLogout.setOnClickListener {
             val res = logout()
-//            val msg = if (res) "Logout Successful" else "Logout Failed"
             Toast.makeText(this,res , Toast.LENGTH_LONG).show()
         }
 
@@ -135,6 +136,11 @@ class TrusToken : AppCompatActivity() {
             edtPlainText2.text.clear()
             tvSignature.text = ""
             tvEncryptedData.text = ""
+        }
+
+        btnPkcs11Functions.setOnClickListener {
+            val intent = Intent(this, PKCS11FunctionsActivity::class.java)
+            startActivity(intent)
         }
     }
 
@@ -164,16 +170,10 @@ class TrusToken : AppCompatActivity() {
         return manager.openDevice(device)?.fileDescriptor ?: -1
     }
 
-//    fun getTokenPin(): String {
-//        return token_pin
-//    }
-
     fun getPlainText(): String {
         return plainText
     }
 
-//    external fun loadLibrary(libPath: String): Boolean
-//    external fun openSession(): Boolean
     external fun libint(int: Int): Int
     external fun login(tokenPin: String): String
     external fun signData(): String

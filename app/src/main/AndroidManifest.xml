@@ -27,6 +27,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".PKCS11FunctionsActivity"
+            android:exported="false"
+            android:label="PKCS#11 Functions"
+            android:theme="@style/Theme.TrusToken_Starter" />
     </application>
 
 </manifest>
