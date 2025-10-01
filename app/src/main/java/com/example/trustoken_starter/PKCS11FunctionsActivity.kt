@@ -1,9 +1,16 @@
 package com.example.trustoken_starter
 
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbManager
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.example.trustoken_starter.TrusToken.Companion.ACTION_USB_PERMISSION
 
 class PKCS11FunctionsActivity : AppCompatActivity() {
     private lateinit var spinner: Spinner
@@ -128,15 +135,45 @@ class PKCS11FunctionsActivity : AppCompatActivity() {
     }
 
     private fun executeFunction(functionName: String, pin: String) {
-        val result = testFunctions(functionName)
+        val fileDescriptor = detectSmartCard()
+        Toast.makeText(this, "File Descriptor: $fileDescriptor", Toast.LENGTH_SHORT).show()
+
+        val result = testFunctions(functionName, fileDescriptor)
+        println(result);
 
         // Display the result
         outputText.text = "$functionName result:\n$result"
     }
 
-    // Native function declarations
-    external fun testFunctions(functionName: String): String
+    fun detectSmartCard(): Int {
+        val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager?
+        usbManager?.deviceList?.values?.forEach { device ->
+            if (isSmartCardReader(device)) {
+                val flag = if (Build.VERSION.SDK_INT >= 33) PendingIntent.FLAG_IMMUTABLE else 0
+                val permissionIntent = PendingIntent.getBroadcast(this, 0, Intent(
+                    ACTION_USB_PERMISSION
+                ), flag)
+                usbManager.requestPermission(device, permissionIntent)
+                if (usbManager.hasPermission(device)) {
+                    return getFileDescriptor(usbManager, device)
+                }
+            }
+        }
+        return -1
+    }
 
+    private fun isSmartCardReader(device: UsbDevice): Boolean {
+        return if (device.vendorId == 10381 && device.productId == 64) {
+            true
+        } else false
+    }
+
+    private fun getFileDescriptor(manager: UsbManager, device: UsbDevice): Int {
+        return manager.openDevice(device)?.fileDescriptor ?: -1
+    }
+
+    // Native function declarations
+    external fun testFunctions(functionName: String, fileDescriptor: Int): String
 
     companion object {
         init {

@@ -17,7 +17,7 @@
 void cleanUp();
 
 // Function pointer typedefs remain unchanged.
-typedef int(*Connect_usb)(int);
+typedef int(*Connect_usb)(int, int, int);
 
 typedef CK_RV (*Initialize)(CK_VOID_PTR);
 
@@ -131,7 +131,7 @@ jstring logErrorAndCleanup(JNIEnv *env, const char *msg, CK_RV rv = CKR_OK) {
 // Helper function to load the library only once.
 void *getLibraryHandle() {
     if (dlhandle == nullptr) {
-        dlhandle = dlopen("liblsusbdemo.so", RTLD_NOW);
+        dlhandle = dlopen("libtrustokenso.so", RTLD_NOW);
         if (dlhandle == nullptr) {
             __android_log_print(ANDROID_LOG_ERROR, "MyLib", "dlopen failed: %s", dlerror());
         }
@@ -161,18 +161,9 @@ CK_RV openSession(const char *token_pin, JNIEnv *env, jstring jStr) {
         return CKR_OK;
     }
 
-
-    auto getSlotList = (GetSlotList) dlsym(dlhandle, "C_GetSlotList");
-    auto c_openSession = (OpenSession) dlsym(dlhandle, "C_OpenSession");
-
-    if (!getSlotList || !c_openSession) {
-        logErrorAndCleanup(env, "Failed to find required symbols", CKR_FUNCTION_REJECTED);
-        env->ReleaseStringUTFChars(jStr, token_pin);
-        std::cerr << "Failed to find required symbols" << std::endl;
-        return CKR_FUNCTION_REJECTED;
-    }
-    LOGE("%s", "initializing");
     CK_RV rv = initializePKCS11();
+
+    LOGE("%s", "initializing");
     if (rv != CKR_OK) {
         logErrorAndCleanup(env, "Failed to initialize pkcs#11", rv);
         env->ReleaseStringUTFChars(jStr, token_pin);
@@ -181,11 +172,16 @@ CK_RV openSession(const char *token_pin, JNIEnv *env, jstring jStr) {
     }
     LOGE("%s","initialized");
 
-//    CK_ULONG no_of_slots = 0;
-//    CK_SLOT_ID slotlist[no_of_slots];
+
+    auto getSlotList = (GetSlotList) dlsym(dlhandle, "C_GetSlotList");
+
+    CK_ULONG no_of_slots = 0;
+
+    getSlotList(TRUE, nullptr, &no_of_slots);
+    CK_SLOT_ID slotlist[no_of_slots];
+    rv = getSlotList(CK_TRUE, slotlist, &no_of_slots);
 //    try {
 //        LOGE("getSlotList called");
-//        getSlotList(TRUE, slotlist, &no_of_slots);
 //        LOGE("getSlotList returned");
 //    }
 //    catch (const std::exception& e) {
@@ -195,7 +191,7 @@ CK_RV openSession(const char *token_pin, JNIEnv *env, jstring jStr) {
 //        std::cerr << "Failed to get slot list" << CKR_ARGUMENTS_BAD << std::endl;
 //        return CKR_ARGUMENTS_BAD;
 //    }
-//    LOGE("no of slots %lu", no_of_slots);
+    LOGE("no of slots %lu", no_of_slots);
 //    if (no_of_slots == 0) {
 //        printf("No slots found with tokens inserted\n");
 //        logErrorAndCleanup(env, "No slots found with tokens inserted", CKR_SLOT_ID_INVALID);
@@ -204,17 +200,27 @@ CK_RV openSession(const char *token_pin, JNIEnv *env, jstring jStr) {
 //    LOGE("openSession called");
 //    //logErrorAndCleanup(env, "tokens inserted", CKR_OK);
 ////    CK_SLOT_ID slotlist[no_of_slots];
-//    rv = getSlotList(CK_TRUE, slotlist, &no_of_slots);
-//    if (rv != CKR_OK) {
-//        logErrorAndCleanup(env, "Failed to get slot list", rv);
-//        env->ReleaseStringUTFChars(jStr, token_pin);
-//        std::cerr << "Failed to get slot list" << rv << std::endl;
-//        return rv;
-//    }
-//    LOGE("slotlist[0] %lu", slotlist[0]);
+    if (rv != CKR_OK) {
+        logErrorAndCleanup(env, "Failed to get slot list", rv);
+        env->ReleaseStringUTFChars(jStr, token_pin);
+        std::cerr << "Failed to get slot list" << rv << std::endl;
+        return rv;
+    }
+    LOGE("slotlist[0] %lu", slotlist[0]);
 //    LOGE("slot count %lu", no_of_slots);
+
+
+    auto c_openSession = (OpenSession) dlsym(dlhandle, "C_OpenSession");
+
+    if ( !c_openSession) {
+        logErrorAndCleanup(env, "Failed to find required symbols", CKR_FUNCTION_REJECTED);
+        env->ReleaseStringUTFChars(jStr, token_pin);
+        std::cerr << "Failed to find required symbols" << std::endl;
+        return CKR_FUNCTION_REJECTED;
+    }
+
     CK_SESSION_HANDLE session;
-    rv = c_openSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    rv = c_openSession(slotlist[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                        &session);
     if (rv != CKR_OK) {
         logErrorAndCleanup(env, "Failed to open session", rv);
@@ -236,13 +242,15 @@ Java_com_example_trustoken_1starter_TrusToken_libint(JNIEnv *env, jobject mainAc
     if (getLibraryHandle() == nullptr) {
         return -1;
     }
+    LOGE("fileDescriptor: %d", fileDescriptor);
     auto Connect_usb_test = (Connect_usb) dlsym(dlhandle, "Connect_usb");
     if (Connect_usb_test == nullptr) {
         LOGE("dlsym(Connect_usb) failed: %s", dlerror());
         cleanUp();
         return -1;
     }
-    int ret = Connect_usb_test(fileDescriptor);
+    int ret = Connect_usb_test(10381, 64, fileDescriptor);
+    LOGE("Connect_usb returned: %d", ret);
     return ret;
 }
 
@@ -655,6 +663,9 @@ Java_com_example_trustoken_1starter_TrusToken_decrypt(JNIEnv *env, jobject thiz,
 }
 
 // Forward declarations of functions from pkcs11_test.cpp
+
+extern int connect_usb(int file_descriptor);
+
 // Initialization and general info functions
 extern void testInitialize();
 extern void testGetFunctionList();
@@ -741,6 +752,7 @@ extern void resetState();
 extern void init();
 
 // Helper class to capture stdout to a string
+// Helper class to capture stdout to a string
 class StdoutCapture {
 private:
     std::stringstream buffer;
@@ -749,6 +761,8 @@ private:
 public:
     StdoutCapture() {
         oldCout = std::cout.rdbuf(buffer.rdbuf());
+        buffer.str("");  // Clear buffer on construction
+        buffer.clear();  // Clear flags
     }
 
     ~StdoutCapture() {
@@ -758,12 +772,18 @@ public:
     std::string getString() {
         return buffer.str();
     }
+
+    void clearBuffer() {
+        buffer.str("");
+        buffer.clear();
+    }
 };
 
 int initCalled = 0;
 // JNI function implementations for PKCS11FunctionsActivity
 JNIEXPORT jstring JNICALL
-Java_com_example_trustoken_1starter_PKCS11FunctionsActivity_testFunctions(JNIEnv *env, jobject thiz, jstring jFunctionName) {
+Java_com_example_trustoken_1starter_PKCS11FunctionsActivity_testFunctions(JNIEnv *env, jobject thiz,
+                                                                          jstring jFunctionName, jint file_descriptor) {
     StdoutCapture capture;
     if(initCalled == 0){
         init();
@@ -772,6 +792,10 @@ Java_com_example_trustoken_1starter_PKCS11FunctionsActivity_testFunctions(JNIEnv
     const char* functionName = env->GetStringUTFChars(jFunctionName, nullptr);
     try {
         resetState(); // Make sure we start clean
+        capture.clearBuffer();
+        int res = connect_usb(file_descriptor);
+        LOGE("connect_usb returned %d", res);
+
         if (strcmp(functionName, "C_Initialize") == 0) testInitialize();
         else if (strcmp(functionName, "C_GetFunctionList") == 0) testGetFunctionList();
         else if (strcmp(functionName, "C_GetInfo") == 0) testGetInfo();

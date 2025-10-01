@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <string>
 #include <thread>
+#include <android/log.h>
 
 using namespace std;
 
@@ -198,13 +199,16 @@ const char *getErrorMessage(CK_RV rv) {
 
 // Helper function to check operation results
 void checkOperation(CK_RV rv, const char *message) {
-    if (rv != CKR_OK) {
-        cout << message << " failed with error: " << getErrorMessage(rv) << " (0x" << hex << rv
-             << ")" << endl;
-    } else {
-        cout << message << " succeeded" << endl;
-    }
-}
+            if (rv != CKR_OK) {
+                cout << message << " failed with error: " << getErrorMessage(rv) << " (0x" << hex << rv
+                     << ")" << endl;
+                __android_log_print(ANDROID_LOG_ERROR, "PKCS11_TEST", "%s failed with error: %s (0x%lx)",
+                                   message, getErrorMessage(rv), rv);
+            } else {
+                cout << message << " succeeded" << endl;
+                __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST", "%s succeeded", message);
+            }
+        }
 extern "C"
 {
 // Helper function to reset PKCS#11 state
@@ -219,6 +223,24 @@ void resetState() {
         slots = nullptr;
     }
     slotCount = 0;
+}
+
+int connect_usb(int fd){
+    if (libHandle == nullptr) {
+        libHandle = dlopen("liblsusbdemo.so", RTLD_NOW);
+        if (libHandle == nullptr) {
+            cerr << "Failed to load library: " << dlerror() << endl;
+            return -1;
+        }
+    }
+    typedef int (*Connect_usb)(int);
+    auto connectUsb = (Connect_usb) dlsym(libHandle, "Connect_usb");
+
+    if (!connectUsb) {
+        cerr << "Failed to find Connect_usb function: " << dlerror() << endl;
+        return -1;
+    }
+    return connectUsb(fd);
 }
 
 // Test function for C_Initialize
@@ -4383,12 +4405,12 @@ void testGetMechanismInfo() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_ULONG slotCount = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+     checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     CK_SLOT_ID *slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+     checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_MECHANISM_INFO mechInfo;
-    CK_RV rv1 = p11Func->C_GetMechanismInfo(0, CKM_SHA256_RSA_PKCS, &mechInfo);
+    CK_RV rv1 = p11Func->C_GetMechanismInfo(slots[0], CKM_SHA256_RSA_PKCS, &mechInfo);
     checkOperation(rv1, "Test 1: Valid slot and supported mechanism");
 
     // Test Case 2: Mechanism with flags like CKF_DIGEST, CKF_SIGN

@@ -43,7 +43,7 @@ class TrusToken : AppCompatActivity() {
             System.loadLibrary("native-lib")
         }
 
-        private const val ACTION_USB_PERMISSION = "com.example.USB_PERMISSION"
+        const val ACTION_USB_PERMISSION = "com.example.USB_PERMISSION"
 
         fun hexStringToByteArray(s: String): ByteArray {
             return s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
@@ -144,7 +144,7 @@ class TrusToken : AppCompatActivity() {
         }
     }
 
-    private fun detectSmartCard(): Int {
+    fun detectSmartCard(): Int {
         val usbManager = getSystemService(Context.USB_SERVICE) as UsbManager?
         usbManager?.deviceList?.values?.forEach { device ->
             if (isSmartCardReader(device)) {
