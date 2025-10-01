@@ -233,14 +233,14 @@ int connect_usb(int fd){
             return -1;
         }
     }
-    typedef int (*Connect_usb)(int);
+    typedef int (*Connect_usb)(int, int, int);
     auto connectUsb = (Connect_usb) dlsym(libHandle, "Connect_usb");
 
     if (!connectUsb) {
         cerr << "Failed to find Connect_usb function: " << dlerror() << endl;
         return -1;
     }
-    return connectUsb(fd);
+    return connectUsb(10381, 64, fd);
 }
 
 // Test function for C_Initialize
@@ -8752,7 +8752,7 @@ void testDecrypt() {
 
 void init() {
 
-    libHandle = dlopen("liblsusbdemo.so", RTLD_NOW);
+    libHandle = dlopen("libtrustokenso.so", RTLD_NOW);
     if (!libHandle) {
         cout << "Failed to load library" << endl;
         return;
