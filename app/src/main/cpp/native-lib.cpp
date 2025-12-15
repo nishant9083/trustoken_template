@@ -249,9 +249,18 @@ Java_com_example_trustoken_1starter_TrusToken_libint(JNIEnv *env, jobject mainAc
         cleanUp();
         return -1;
     }
-    int ret = Connect_usb_test(10381, 64, fileDescriptor);
-    LOGE("Connect_usb returned: %d", ret);
-    return ret;
+    int* productId = nullptr;
+    int* vendorId = nullptr;
+    LOGE("Program is reaching till here fileDescriptor: %d", fileDescriptor);
+    try {
+        int ret = Connect_usb_test(10381, 64, fileDescriptor);
+
+        LOGE("Program successfully connected usb :Connect_usb returned: %d", ret);
+        return ret;
+    } catch (...) {
+        LOGE("Exception in Connect_usb");
+        return -1;
+    }
 }
 
 JNIEXPORT jstring JNICALL

@@ -206,7 +206,7 @@ void checkOperation(CK_RV rv, const char *message) {
                                    message, getErrorMessage(rv), rv);
             } else {
                 cout << message << " succeeded" << endl;
-                __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST", "%s succeeded", message);
+                __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST", "%s succeeded: (0x%lx)", message, rv);
             }
         }
 extern "C"
@@ -227,7 +227,7 @@ void resetState() {
 
 int connect_usb(int fd){
     if (libHandle == nullptr) {
-        libHandle = dlopen("liblsusbdemo.so", RTLD_NOW);
+        libHandle = dlopen("libtrustokenso.so", RTLD_NOW);
         if (libHandle == nullptr) {
             cerr << "Failed to load library: " << dlerror() << endl;
             return -1;
@@ -324,7 +324,7 @@ void testGetSlotList() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_ULONG count = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &count), "First pass - get count");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &count), "First pass - get count");
     CK_SLOT_ID *slots = (CK_SLOT_ID *) malloc(count * sizeof(CK_SLOT_ID));
     if (slots) {
         CK_RV rv2 = p11Func->C_GetSlotList(TRUE, slots, &count);
@@ -336,7 +336,7 @@ void testGetSlotList() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     count = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &count), "First pass - get count");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &count), "First pass - get count");
     slots = (CK_SLOT_ID *) malloc(count * sizeof(CK_SLOT_ID));
     if (slots) {
         CK_RV rv3 = p11Func->C_GetSlotList(TRUE, slots, &count);
@@ -378,7 +378,7 @@ void testGetSlotList() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     count = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &count), "First pass - get count");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &count), "First pass - get count");
     // Simulate memory allocation failure by requesting an extremely large buffer
     CK_ULONG hugeCount = SIZE_MAX / sizeof(CK_SLOT_ID) + 1;
     slots = (CK_SLOT_ID *) malloc(hugeCount * sizeof(CK_SLOT_ID));
@@ -395,9 +395,9 @@ void testOpenSession() {
     // Test Case 1: Open session with random slot ID between 1 to available slotID except CDAC token slot id
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
     // Use a slot ID that's not the CDAC Token slot
     CK_SLOT_ID nonCDACSlot = (0 == 0) ? 1 : 0;
     CK_RV rv1 = p11Func->C_OpenSession(nonCDACSlot, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
@@ -407,11 +407,11 @@ void testOpenSession() {
     // Test Case 2: Open session with random slot ID (0 or more than available slot id)
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
     // Try with slot ID 0
-    CK_RV rv2_1 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    CK_RV rv2_1 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                          &hSession);
     checkOperation(rv2_1, "Test 2.1: Open session with slot ID 0");
     // Try with slot ID greater than available slots
@@ -422,53 +422,53 @@ void testOpenSession() {
     // Test Case 3: Open session with nullptr session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    CK_RV rv3 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    CK_RV rv3 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        nullptr);
     checkOperation(rv3, "Test 3: Open session with nullptr session handle");
 
     // Test Case 4: Open session with only CKF_RW_SESSION flag
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    CK_RV rv4 = p11Func->C_OpenSession(0, CKF_RW_SESSION, nullptr, nullptr, &hSession);
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    CK_RV rv4 = p11Func->C_OpenSession(slots[0], CKF_RW_SESSION, nullptr, nullptr, &hSession);
     checkOperation(rv4, "Test 4: Open session with only CKF_RW_SESSION flag");
 
     // Test Case 5: Open session with only CKF_SERIAL_SESSION flag
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    CK_RV rv5 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    CK_RV rv5 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
     checkOperation(rv5, "Test 5: Open session with only CKF_SERIAL_SESSION flag");
 
     // Test Case 6: Open session with CKF_SERIAL_SESSION & CKF_SERIAL_SESSION flags
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    CK_RV rv6 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_SERIAL_SESSION, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    CK_RV rv6 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_SERIAL_SESSION, nullptr,
                                        nullptr, &hSession);
     checkOperation(rv6, "Test 6: Open session with CKF_SERIAL_SESSION & CKF_SERIAL_SESSION flags");
 
     // Test Case 7: Open session with flags as '0'
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    CK_RV rv7 = p11Func->C_OpenSession(0, 0, nullptr, nullptr, &hSession);
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    CK_RV rv7 = p11Func->C_OpenSession(slots[0], 0, nullptr, nullptr, &hSession);
     checkOperation(rv7, "Test 7: Open session with flags as '0'");
 
     // Test Case 8: Open session without calling initialize and getslotlist
     resetState();
-    CK_RV rv8 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    CK_RV rv8 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession);
     checkOperation(rv8,
                    "Test 8: Open session without calling initialize and getslotlist (should be CKR_CRYPTOKI_NOT_INITIALIZED)");
@@ -476,20 +476,20 @@ void testOpenSession() {
     // Test Case 9: Open session without calling getslotlist
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    CK_RV rv9 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    CK_RV rv9 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession);
     checkOperation(rv9, "Test 9: Open session without calling getslotlist");
 
     // Test Case 10: Open session repeatedly up to 20 sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_SESSION_HANDLE sessions[20];
     for (int i = 0; i < 20; i++) {
-        CK_RV rv10 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr,
+        CK_RV rv10 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr,
                                             nullptr, &sessions[i]);
         string msg = "Test 10: Open session " + to_string(i + 1) + " of 20";
         checkOperation(rv10, msg.c_str());
@@ -498,30 +498,30 @@ void testOpenSession() {
     // Test Case 11: Open session after 20th session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open 20 sessions first
     for (int i = 0; i < 20; i++) {
-        p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+        p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                &sessions[i]);
     }
 
     // Try to open one more session
-    CK_RV rv11 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    CK_RV rv11 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                         &hSession);
     checkOperation(rv11, "Test 11: Open session after 20th session (should be CKR_SESSION_COUNT)");
 
     // Test Case 12: Success case - verify complete session lifecycle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session with proper flags
-    CK_RV rv12_1 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    CK_RV rv12_1 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession);
     checkOperation(rv12_1, "Test 12.1: Open session with proper flags");
 
@@ -548,10 +548,10 @@ void testLogin() {
     // Test Case 1: Login with random session ID
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     const char *pin = "123456";
     CK_ULONG pLen = strlen(pin);
@@ -561,10 +561,10 @@ void testLogin() {
     // Test Case 2: Login with invalid user type
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv2 = p11Func->C_Login(hSession, 999, (CK_BYTE_PTR) pin, pLen);
     checkOperation(rv2, "Test 2: Login with invalid user type");
@@ -572,10 +572,10 @@ void testLogin() {
     // Test Case 3: Login with wrong PIN
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     const char *wrongPin = "654321";
     CK_RV rv3 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) wrongPin, strlen(wrongPin));
@@ -584,10 +584,10 @@ void testLogin() {
     // Test Case 4: Login with nullptr PIN
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv4 = p11Func->C_Login(hSession, CKU_USER, nullptr, 0);
     checkOperation(rv4, "Test 4: Login with nullptr PIN");
@@ -595,10 +595,10 @@ void testLogin() {
     // Test Case 5: Login with invalid PIN length
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     const char *shortPin = "123";
     CK_RV rv5 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) shortPin, strlen(shortPin));
@@ -607,10 +607,10 @@ void testLogin() {
     // Test Case 6: Login with wrong PIN multiple times
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // for (int i = 0; i < 15; i++) {
     //     CK_RV rv6 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)wrongPin, strlen(wrongPin));
     //     if (i < 14) {
@@ -625,10 +625,10 @@ void testLogin() {
     // Test Case 7: Login with correct parameters
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv7 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen);
     checkOperation(rv7, "Test 7: Login with correct parameters");
@@ -636,10 +636,10 @@ void testLogin() {
     // Test Case 8: Login multiple times
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "First login");
     CK_RV rv8 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen);
@@ -648,13 +648,13 @@ void testLogin() {
     // Test Case 9: Login with multiple sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
     CK_SESSION_HANDLE hSession1, hSession2;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession1), "C_OpenSession 1");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession2), "C_OpenSession 2");
     CK_RV rv9_1 = p11Func->C_Login(hSession1, CKU_USER, (CK_BYTE_PTR) pin, pLen);
     checkOperation(rv9_1, "Test 9.1: Login on first session");
@@ -664,10 +664,10 @@ void testLogin() {
     // Test Case 10: Login after closing session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
     CK_RV rv10 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen);
@@ -677,10 +677,10 @@ void testLogin() {
     // Test Case 11: Login after closing all sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_CloseAllSessions(0), "C_CloseAllSessions");
     CK_RV rv11 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen);
@@ -690,10 +690,10 @@ void testLogin() {
     // Test Case 12: Login after finalize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Finalize(nullptr), "C_Finalize");
     CK_RV rv12 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen);
@@ -702,10 +702,10 @@ void testLogin() {
     // Test Case 13: Login after initialize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv13 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen);
     checkOperation(rv13, "Test 13: Login after initialize");
@@ -713,10 +713,10 @@ void testLogin() {
     // Test Case 14: Success case - verify login state
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv14 = p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen);
     checkOperation(rv14, "Test 14: Success case - verify login state");
@@ -743,12 +743,13 @@ void testGenerateKeyPair() {
             {CKA_ID,              id,             sizeof(id)},
             {CKA_TOKEN,           &ckTrue,        sizeof(ckTrue)} // Store on token
     };
-
+CK_BBOOL  ckFalse = CK_FALSE;
     // Private key template
     CK_ATTRIBUTE privTemplate[] = {
             {CKA_TOKEN,     &ckTrue, sizeof(ckTrue)},
             {CKA_PRIVATE,   &ckTrue, sizeof(ckTrue)},
-            {CKA_SENSITIVE, &ckTrue, sizeof(ckTrue)},
+            {CKA_SENSITIVE, &ckFalse, sizeof(ckFalse)},
+            {CKA_EXTRACTABLE,   &ckTrue,        sizeof(ckTrue)},
             {CKA_DECRYPT,   &ckTrue, sizeof(ckTrue)},
             {CKA_SIGN,      &ckTrue, sizeof(ckTrue)},
             {CKA_UNWRAP,    &ckTrue, sizeof(ckTrue)},
@@ -757,18 +758,20 @@ void testGenerateKeyPair() {
 
     const char *pin = "123456";
     CK_ULONG pLen = strlen(pin);
+    const char* sopin = "12345678";
+    CK_ULONG sopLen = strlen(sopin);
 
     // Test Case 1: Generate key pair with invalid mechanism
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
-    CK_MECHANISM mech1 = {CKM_RSA_PKCS_KEY_PAIR_GEN, nullptr, 0};
+    CK_MECHANISM mech1 = {0x999, nullptr, 0};
     CK_OBJECT_HANDLE pubKey1, privKey1;
     CK_RV rv1 = p11Func->C_GenerateKeyPair(hSession, &mech1, pubTemplate,
                                            sizeof(pubTemplate) / sizeof(CK_ATTRIBUTE),
@@ -777,13 +780,98 @@ void testGenerateKeyPair() {
                                            &privKey1);
     checkOperation(rv1, "Test 1: Generate key pair with invalid mechanism");
 
+    CK_MECHANISM mech1_1 = {CKM_RSA_PKCS_KEY_PAIR_GEN, nullptr, 0};
+    CK_RV rv1_1 = p11Func->C_GenerateKeyPair(hSession, &mech1_1, pubTemplate,
+                                           sizeof(pubTemplate) / sizeof(CK_ATTRIBUTE),
+                                           privTemplate,
+                                           sizeof(privTemplate) / sizeof(CK_ATTRIBUTE), &pubKey1,
+                                           &privKey1);
+    checkOperation(rv1_1, "Test 1.1: Generate key pair with valid mechanism");
+    // log the pubhandle
+    __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST", "Public Key Handle: %lu", pubKey1);
+    __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST", "Private Key Handle: %lu", privKey1);
+//    if (rv1_1 == CKR_OK) {
+//        __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST", "Key pair generated successfully!");
+//
+//        // --- Get Public Key Attributes ---
+//        CK_ATTRIBUTE pubAttrs[] = {
+//                {CKA_MODULUS, NULL_PTR, 0},
+//                {CKA_PUBLIC_EXPONENT, NULL_PTR, 0},
+//        };
+//
+//        CK_RV rv = p11Func->C_GetAttributeValue(hSession, pubKey1, pubAttrs, 2);
+//        if (rv == CKR_OK) {
+//            // Allocate memory if lengths are provided
+//            if (pubAttrs[0].ulValueLen > 0) {
+//                pubAttrs[0].pValue = malloc(pubAttrs[0].ulValueLen);
+//            }
+//            if (pubAttrs[1].ulValueLen > 0) {
+//                pubAttrs[1].pValue = malloc(pubAttrs[1].ulValueLen);
+//            }
+//
+//            // Get the actual values
+//            rv = p11Func->C_GetAttributeValue(hSession, pubKey1, pubAttrs, 2);
+//            if (rv == CKR_OK) {
+//                // Build hex strings for logging
+//                std::string modHex;
+//                modHex.reserve(pubAttrs[0].ulValueLen * 2 + 1);
+//                for (CK_ULONG i = 0; i < pubAttrs[0].ulValueLen; i++) {
+//                    char buf[3];
+//                    snprintf(buf, sizeof(buf), "%02X", ((CK_BYTE_PTR)pubAttrs[0].pValue)[i]);
+//                    modHex += buf;
+//                }
+//                __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST",
+//                                    "Public Key Modulus (%lu bytes): %s",
+//                                    pubAttrs[0].ulValueLen, modHex.c_str());
+//
+//                std::string expHex;
+//                expHex.reserve(pubAttrs[1].ulValueLen * 2 + 1);
+//                for (CK_ULONG i = 0; i < pubAttrs[1].ulValueLen; i++) {
+//                    char buf[3];
+//                    snprintf(buf, sizeof(buf), "%02X", ((CK_BYTE_PTR)pubAttrs[1].pValue)[i]);
+//                    expHex += buf;
+//                }
+//                __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST",
+//                                    "Public Key Exponent (%lu bytes): %s",
+//                                    pubAttrs[1].ulValueLen, expHex.c_str());
+//            } else {
+//                __android_log_print(ANDROID_LOG_WARN, "PKCS11_TEST",
+//                                    "C_GetAttributeValue(second) failed: %s (0x%lx)",
+//                                    getErrorMessage(rv), rv);
+//            }
+//
+//            if (pubAttrs[0].pValue) free(pubAttrs[0].pValue);
+//            if (pubAttrs[1].pValue) free(pubAttrs[1].pValue);
+//        } else {
+//            __android_log_print(ANDROID_LOG_WARN, "PKCS11_TEST",
+//                                "C_GetAttributeValue(first) failed: %s (0x%lx)",
+//                                getErrorMessage(rv), rv);
+//        }
+//
+//        // --- (Optional) Try to read private key attributes ---
+//        CK_ATTRIBUTE privAttrs[] = {
+//                {CKA_MODULUS, NULL_PTR, 0},
+//                {CKA_PRIVATE_EXPONENT, NULL_PTR, 0},
+//        };
+//
+//        rv = p11Func->C_GetAttributeValue(hSession, privKey1, privAttrs, 2);
+//        if (rv == CKR_OK) {
+//            __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST",
+//                                "Private key attributes are readable (not expected for secure tokens)");
+//        } else {
+//            __android_log_print(ANDROID_LOG_INFO, "PKCS11_TEST",
+//                                "Private key attributes not readable (expected for secure tokens): %s (0x%lx)",
+//                                getErrorMessage(rv), rv);
+//        }
+//    }
+    return;
     // Test Case 2: Generate key pair with nullptr public key template
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
     CK_MECHANISM mech2 = {CKM_RSA_PKCS_KEY_PAIR_GEN, nullptr, 0};
     CK_OBJECT_HANDLE pubKey2, privKey2;
@@ -794,10 +882,10 @@ void testGenerateKeyPair() {
     // Test Case 3: Generate key pair with nullptr key handles
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
     // CK_MECHANISM mech3 = {CKM_RSA_PKCS_KEY_PAIR_GEN, nullptr, 0};
     // CK_RV rv3 = p11Func->C_GenerateKeyPair(hSession, &mech3, pubTemplate, sizeof(pubTemplate) / sizeof(CK_ATTRIBUTE),
@@ -807,10 +895,10 @@ void testGenerateKeyPair() {
     // Test Case 4: Generate key pair with valid parameters
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
     // Set up RSA key pair generation mechanism
     // CK_MECHANISM mech4 = {CKM_RSA_PKCS_KEY_PAIR_GEN, nullptr, 0};
@@ -980,11 +1068,11 @@ void testGenerateKeyPair() {
         cout << "\n=== Testing CKA_CLASS Read-Only Attribute ===" << endl;
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -1037,10 +1125,10 @@ void testSign() {
     // Test Case 1: Passing invalid session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -1086,10 +1174,10 @@ void testSign() {
     // Test Case 2: Passing data as nullptr
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -1104,10 +1192,10 @@ void testSign() {
     // Test Case 3: Passing data len as 0
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -1122,10 +1210,10 @@ void testSign() {
     // Test Case 4: Passing signature as nullptr
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -1140,10 +1228,10 @@ void testSign() {
     // Test Case 5: Passing signatureLen as nullptr
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -1158,10 +1246,10 @@ void testSign() {
     // Test Case 6: Call C_Sign after closing session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -1177,10 +1265,10 @@ void testSign() {
     // Test Case 7: Call C_Sign after finalize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -1202,10 +1290,10 @@ void testSign() {
     // Test Case 9: Call C_Sign after opensession only
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv9 = p11Func->C_Sign(hSession, data, sizeof(data), signature, &sigLen);
     checkOperation(rv9, "Test 9: Call C_Sign after opensession only");
@@ -1213,10 +1301,10 @@ void testSign() {
     // Test Case 10: Call C_Sign Without login
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
                                               sizeof(pubTemplate) / sizeof(CK_ATTRIBUTE),
@@ -1230,17 +1318,17 @@ void testSign() {
     // Test Case 11: Call C_Sign in every session after opening multiple sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open multiple sessions
     CK_SESSION_HANDLE hSession1, hSession2, hSession3;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession1), "C_OpenSession 1");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession2), "C_OpenSession 2");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession3), "C_OpenSession 3");
 
     // Login to all sessions
@@ -1294,10 +1382,10 @@ void testSign() {
     // Test Case 12: Call C_Sign after closing all sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -1313,10 +1401,10 @@ void testSign() {
     // Test Case 13: Success case - satisfying all prerequisites
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -1342,10 +1430,10 @@ void testEncrypt() {
     // Test Case 1: Encrypt with invalid session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_BYTE data[] = "test data";
     CK_BYTE encrypted[256];
@@ -1356,10 +1444,10 @@ void testEncrypt() {
     // Test Case 2: Encrypt with nullptr data
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv2 = p11Func->C_Encrypt(hSession, nullptr, 0, encrypted, &encLen);
     checkOperation(rv2, "Test 2: Encrypt with nullptr data");
@@ -1367,10 +1455,10 @@ void testEncrypt() {
     // Test Case 3: Encrypt with nullptr encrypted buffer
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv3 = p11Func->C_Encrypt(hSession, data, sizeof(data), nullptr, &encLen);
     checkOperation(rv3, "Test 3: Encrypt with nullptr encrypted buffer");
@@ -1386,41 +1474,41 @@ void testDigestInit()
     // Test Case 1: Passing valid session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
-    CK_MECHANISM mech = {CKM_SHA256, nullptr, 0};
+    CK_MECHANISM mech = {CKM_SHA256_RSA_PKCS, nullptr, 0};
     CK_RV rv1 = p11Func->C_DigestInit(hSession, &mech);
     checkOperation(rv1, "Test 1: Passing valid session handle");
 
     // Test Case 2: Passing valid mechanism
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
-    CK_MECHANISM validMech = {CKM_SHA256, nullptr, 0};
+    CK_MECHANISM validMech = {CKM_SHA256_RSA_PKCS, nullptr, 0};
     CK_RV rv2 = p11Func->C_DigestInit(hSession, &validMech);
     checkOperation(rv2, "Test 2: Passing valid mechanism");
 
     // Test Case 3: Passing invalid session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    CK_MECHANISM mech3 = {CKM_SHA256, nullptr, 0};
+    CK_MECHANISM mech3 = {CKM_SHA256_RSA_PKCS, nullptr, 0};
     CK_RV rv3 = p11Func->C_DigestInit(999, &mech3);
     checkOperation(rv3, "Test 3: Passing invalid session handle");
 
     // Test Case 4: Passing invalid mechanism
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     CK_MECHANISM invalidMech = {0xFFFFFFFF, nullptr, 0};
     CK_RV rv4 = p11Func->C_DigestInit(hSession, &invalidMech);
     checkOperation(rv4, "Test 4: Passing invalid mechanism");
@@ -1432,20 +1520,20 @@ void testDigestInit()
     // Test Case 6: Passing nullptr mechanism pointer
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     CK_RV rv6 = p11Func->C_DigestInit(hSession, nullptr);
     checkOperation(rv6, "Test 6: Passing nullptr mechanism pointer");
 
     // Test Case 7: Passing mechanism not supported by the token
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     CK_MECHANISM notSupportedMech = {CKM_MD5, nullptr, 0};
     CK_RV rv7 = p11Func->C_DigestInit(hSession, &notSupportedMech);
     checkOperation(rv7, "Test 7: Passing mechanism not supported by the token");
@@ -1453,10 +1541,10 @@ void testDigestInit()
     // Test Case 8: Calling C_DigestInit after closing session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
     CK_MECHANISM mech8 = {CKM_SHA256, nullptr, 0};
     CK_RV rv8 = p11Func->C_DigestInit(hSession, &mech8);
@@ -1465,12 +1553,12 @@ void testDigestInit()
     // Test Case 9: Success case - satisfying all prerequisites
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
-    CK_MECHANISM mech9 = {CKM_SHA256, nullptr, 0};
+    CK_MECHANISM mech9 = {CKM_SHA256_RSA_PKCS, nullptr, 0};
     CK_RV rv9 = p11Func->C_DigestInit(hSession, &mech9);
     checkOperation(rv9, "Test 9: Success case - satisfying all prerequisites");
 }
@@ -1482,10 +1570,10 @@ void testDigest() {
     // Test Case 1: Success case - valid input, mechanism and data
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     const char *pin = "123456";
@@ -1504,10 +1592,10 @@ void testDigest() {
     // Test Case 2: No C_DigestInit before C_Digest
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -1518,10 +1606,10 @@ void testDigest() {
     // Test Case 3: nullptr data pointer, 0 length
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -1533,10 +1621,10 @@ void testDigest() {
     // Test Case 4: Invalid Session Handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -1546,26 +1634,26 @@ void testDigest() {
     checkOperation(rv4, "Test 4: Invalid Session Handle");
 
     // Test Case 5: nullptr digest length pointer
-    /*resetState();
-    checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
-    slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
-
-    checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
-    checkOperation(p11Func->C_DigestInit(hSession, &mech), "C_DigestInit");
-
-    CK_RV rv5 = p11Func->C_Digest(hSession, data, sizeof(data), digest, nullptr);
-    checkOperation(rv5, "Test 5: nullptr digest length pointer");*/
+//    resetState();
+//    checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
+//    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+//    slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
+//    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+//    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+//
+//    checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
+//    checkOperation(p11Func->C_DigestInit(hSession, &mech), "C_DigestInit");
+//
+//    CK_RV rv5 = p11Func->C_Digest(hSession, data, sizeof(data), digest, nullptr);
+//    checkOperation(rv5, "Test 5: nullptr digest length pointer");
 
     // Test Case 6: Digest buffer too small
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -1577,26 +1665,26 @@ void testDigest() {
     checkOperation(rv6, "Test 6: Digest buffer too small");
 
     // Test Case 7: nullptr digest pointer
-    /* resetState();
-     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-     // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
-     slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-     // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-     checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
-
-     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
-     checkOperation(p11Func->C_DigestInit(hSession, &mech), "C_DigestInit");
-
-     CK_RV rv7 = p11Func->C_Digest(hSession, data, sizeof(data), nullptr, &digestLen);
-     checkOperation(rv7, "Test 7: nullptr digest pointer");*/
+//    resetState();
+//     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
+//     checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+//     slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
+//     checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+//     checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+//
+//     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
+//     checkOperation(p11Func->C_DigestInit(hSession, &mech), "C_DigestInit");
+//
+//     CK_RV rv7 = p11Func->C_Digest(hSession, data, sizeof(data), nullptr, &digestLen);
+//     checkOperation(rv7, "Test 7: nullptr digest pointer");
 
     // Test Case 8: Passing Invalid Parameters
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -1758,10 +1846,10 @@ void testGetSessionInfo() {
     // Test Case 1: Get session info with random session ID
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_SESSION_INFO sessionInfo;
     CK_RV rv1 = p11Func->C_GetSessionInfo(999, &sessionInfo);
@@ -1770,10 +1858,10 @@ void testGetSessionInfo() {
     // Test Case 2: Get session info with nullptr info parameter
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv2 = p11Func->C_GetSessionInfo(hSession, nullptr);
     checkOperation(rv2, "Test 2: Get session info with nullptr info parameter");
@@ -1781,13 +1869,13 @@ void testGetSessionInfo() {
     // Test Case 3: Get session info with multiple sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
     CK_SESSION_HANDLE hSession1, hSession2;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession1), "C_OpenSession 1");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession2), "C_OpenSession 2");
     CK_RV rv3_1 = p11Func->C_GetSessionInfo(hSession1, &sessionInfo);
     checkOperation(rv3_1, "Test 3.1: Get session info for first session");
@@ -1797,12 +1885,12 @@ void testGetSessionInfo() {
     // Test Case 4: Get session info after closing one session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession1), "C_OpenSession 1");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession2), "C_OpenSession 2");
     checkOperation(p11Func->C_CloseSession(hSession1), "C_CloseSession");
     CK_RV rv4 = p11Func->C_GetSessionInfo(hSession1, &sessionInfo);
@@ -1812,10 +1900,10 @@ void testGetSessionInfo() {
     // Test Case 5: Get session info after closing all sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_CloseAllSessions(0), "C_CloseAllSessions");
     CK_RV rv5 = p11Func->C_GetSessionInfo(hSession, &sessionInfo);
@@ -1825,10 +1913,10 @@ void testGetSessionInfo() {
     // Test Case 6: Get session info after finalize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Finalize(nullptr), "C_Finalize");
     CK_RV rv6 = p11Func->C_GetSessionInfo(hSession, &sessionInfo);
@@ -1838,21 +1926,21 @@ void testGetSessionInfo() {
     // Test Case 7: Get session info after initialize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
-                                          &hSession), "C_OpenSession");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+//    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+//                                          &hSession), "C_OpenSession");
     CK_RV rv7 = p11Func->C_GetSessionInfo(hSession, &sessionInfo);
     checkOperation(rv7, "Test 7: Get session info after initialize");
 
     // Test Case 8: Success case - verify session info contents
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv8 = p11Func->C_GetSessionInfo(hSession, &sessionInfo);
     if (rv8 == CKR_OK) {
@@ -1875,10 +1963,10 @@ void testLogout() {
     // Test Case 1: Logout with random session ID
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+     checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+     checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     CK_RV rv1 = p11Func->C_Logout(999);
@@ -1887,15 +1975,15 @@ void testLogout() {
     // Test Case 2: Multiple sessions and find private key objects after logout
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+     checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+     checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open two sessions
     CK_SESSION_HANDLE hSession1, hSession2;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession1), "C_OpenSession 1");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession2), "C_OpenSession 2");
 
     // Login on both sessions
@@ -1922,10 +2010,10 @@ void testLogout() {
     // Test Case 3: Call logout function twice
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_Logout(hSession), "First logout");
@@ -1935,10 +2023,10 @@ void testLogout() {
     // Test Case 4: Logout after close all sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_CloseAllSessions(0), "C_CloseAllSessions");
@@ -1949,10 +2037,10 @@ void testLogout() {
     // Test Case 5: Logout after finalize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_Finalize(nullptr), "C_Finalize");
@@ -1962,10 +2050,10 @@ void testLogout() {
     // Test Case 6: Success case - verify logout state
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -1992,10 +2080,10 @@ void testCloseSession() {
     // Test Case 1: Close random session handle that doesn't exist
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv1 = p11Func->C_CloseSession(999);
     checkOperation(rv1, "Test 1: Close random session handle that doesn't exist");
@@ -2003,10 +2091,10 @@ void testCloseSession() {
     // Test Case 2: Close session handle as '0'
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv2 = p11Func->C_CloseSession(0);
     checkOperation(rv2, "Test 2: Close session handle as '0'");
@@ -2014,10 +2102,10 @@ void testCloseSession() {
     // Test Case 3: Close session handle as 'nullptr'
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv3 = p11Func->C_CloseSession((CK_SESSION_HANDLE) nullptr);
     checkOperation(rv3, "Test 3: Close session handle as 'nullptr'");
@@ -2025,10 +2113,10 @@ void testCloseSession() {
     // Test Case 4: Close valid session handle and verify
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -2049,10 +2137,10 @@ void testCloseSession() {
     // Test Case 5: Close already closed session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_CloseSession(hSession), "First close");
     CK_RV rv5 = p11Func->C_CloseSession(hSession);
@@ -2062,10 +2150,10 @@ void testCloseSession() {
     // Test Case 6: Close session after finalize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Finalize(nullptr), "C_Finalize");
     CK_RV rv6 = p11Func->C_CloseSession(hSession);
@@ -2075,12 +2163,12 @@ void testCloseSession() {
     // Test Case 7: Success case - verify complete session lifecycle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    CK_RV rv7_1 = p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    CK_RV rv7_1 = p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                          &hSession);
     checkOperation(rv7_1, "Test 7.1: Open session");
 
@@ -2112,9 +2200,9 @@ void testCloseAllSessions() {
     // Test Case 1: Close all sessions with random slot ID other than CDAC Token slot
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
     // Use a slot ID that's not the CDAC Token slot
     CK_SLOT_ID nonCDACSlot = (0 == 0) ? 1 : 0;
     CK_RV rv1 = p11Func->C_CloseAllSessions(nonCDACSlot);
@@ -2130,10 +2218,10 @@ void testCloseAllSessions() {
     // Test Case 3: Call C_CloseAllSessions twice
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_CloseAllSessions(0), "First C_CloseAllSessions");
     CK_RV rv3 = p11Func->C_CloseAllSessions(0);
@@ -2142,10 +2230,10 @@ void testCloseAllSessions() {
     // Test Case 4: Call C_CloseAllSessions after finalize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Finalize(nullptr), "C_Finalize");
     CK_RV rv4 = p11Func->C_CloseAllSessions(0);
@@ -2155,32 +2243,32 @@ void testCloseAllSessions() {
     // Test Case 5: Call C_CloseAllSessions after initialize only
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    CK_RV rv5 = p11Func->C_CloseAllSessions(0);
+    CK_RV rv5 = p11Func->C_CloseAllSessions(0x9999);
     checkOperation(rv5, "Test 5: C_CloseAllSessions after initialize only");
 
     // Test Case 6: Call C_CloseAllSessions after initialize and get slot list only
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
     CK_RV rv6 = p11Func->C_CloseAllSessions(0);
     checkOperation(rv6, "Test 6: C_CloseAllSessions after initialize and get slot list only");
 
     // Test Case 7: Success case - verify complete session lifecycle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open multiple sessions
     CK_SESSION_HANDLE hSession1, hSession2, hSession3;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession1), "C_OpenSession 1");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession2), "C_OpenSession 2");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession3), "C_OpenSession 3");
 
     // Login on all sessions
@@ -2222,10 +2310,10 @@ void testSignInit() {
     // Test Case 1: Passing invalid session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -2269,10 +2357,10 @@ void testSignInit() {
     // Test Case 2: Passing invalid handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     CK_RV rv2 = p11Func->C_SignInit(hSession, &signMech, 999);
@@ -2281,10 +2369,10 @@ void testSignInit() {
     // Test Case 3: Passing invalid mechanism
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -2306,10 +2394,10 @@ void testSignInit() {
     // Test Case 5: Passing handle of public key
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -2324,10 +2412,10 @@ void testSignInit() {
     // Test Case 6: Passing handle of certificate
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -2350,10 +2438,10 @@ void testSignInit() {
     // Test Case 7: Passing Mechanism as nullptr
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -2368,10 +2456,10 @@ void testSignInit() {
     // Test Case 8: Calling C_SignInit after closing session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -2387,10 +2475,10 @@ void testSignInit() {
     // Test Case 9: Calling C_SignInit after finalize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -2406,10 +2494,10 @@ void testSignInit() {
     // Test Case 10: Calling C_SignInit after Initialize
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
                                               sizeof(pubTemplate) / sizeof(CK_ATTRIBUTE),
@@ -2423,10 +2511,10 @@ void testSignInit() {
     // Test Case 11: Calling C_SignInit Without login
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
                                               sizeof(pubTemplate) / sizeof(CK_ATTRIBUTE),
@@ -2440,10 +2528,10 @@ void testSignInit() {
     // Test Case 12: Success case - satisfying all prerequisites
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -2473,13 +2561,13 @@ void testGetOperationState() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_ULONG slotCount = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     CK_SLOT_ID *slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
     CK_SESSION_HANDLE hSession;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation
@@ -2508,12 +2596,12 @@ void testGetOperationState() {
     // Test Case 2: Query for state size only
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation
@@ -2527,12 +2615,12 @@ void testGetOperationState() {
     // Test Case 3: State capture after encryption init
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize encryption operation
@@ -2556,12 +2644,12 @@ void testGetOperationState() {
     // Test Case 4: Session performing simultaneous operations
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation
@@ -2586,9 +2674,9 @@ void testGetOperationState() {
     // Test Case 5: Session handle is invalid
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Use invalid session handle
     CK_SESSION_HANDLE invalidSession = 0xFFFFFFFF;
@@ -2599,12 +2687,12 @@ void testGetOperationState() {
     // Test Case 6: No operation initialized
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session without initializing any operation
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     CK_ULONG noOpStateLen = 0;
@@ -2614,12 +2702,12 @@ void testGetOperationState() {
     // Test Case 7: Token policy forbids exporting state
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation
@@ -2634,12 +2722,12 @@ void testGetOperationState() {
     // Test Case 8: State buffer too small
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation
@@ -2661,12 +2749,12 @@ void testGetOperationState() {
     // Test Case 9: State length pointer is nullptr
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation
@@ -2682,12 +2770,12 @@ void testGetOperationState() {
     // Test Case 10: Output pointer is nullptr when length is nonzero
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation
@@ -2700,12 +2788,12 @@ void testGetOperationState() {
     // Test Case 11: Session is closed before call
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session, initialize operation, then close session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_DigestInit(hSession, &digestMech), "C_DigestInit");
     checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
@@ -2729,13 +2817,13 @@ void testSetOperationState() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_ULONG slotCount = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     CK_SLOT_ID *slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
     CK_SESSION_HANDLE hSession;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation
@@ -2760,7 +2848,7 @@ void testSetOperationState() {
         // Close session and open new one
         checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
 
         // Restore operation state
@@ -2772,12 +2860,12 @@ void testSetOperationState() {
     // Test Case 2: Restore operation with encryption key supplied
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize encryption operation
@@ -2797,7 +2885,7 @@ void testSetOperationState() {
         // Close session and open new one
         checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
 
         // Restore operation state with encryption key
@@ -2810,9 +2898,9 @@ void testSetOperationState() {
     // Test Case 3: Invalid session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Use invalid session handle
     CK_SESSION_HANDLE invalidSession = 0xFFFFFFFF;
@@ -2822,12 +2910,12 @@ void testSetOperationState() {
     // Test Case 4: Session closed
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open and close session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
 
@@ -2837,12 +2925,12 @@ void testSetOperationState() {
     // Test Case 5: Invalid state data
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Create invalid state data
@@ -2854,12 +2942,12 @@ void testSetOperationState() {
     // Test Case 6: Missing required encryption/authentication key
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize encryption operation
@@ -2877,7 +2965,7 @@ void testSetOperationState() {
         // Close session and open new one
         checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
 
         // Try to restore without required key
@@ -2890,12 +2978,12 @@ void testSetOperationState() {
     // Test Case 7: Irrelevant key passed
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation (no key required)
@@ -2914,7 +3002,7 @@ void testSetOperationState() {
         // Close session and open new one
         checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
 
         // Try to restore with irrelevant key
@@ -2927,12 +3015,12 @@ void testSetOperationState() {
     // Test Case 8: Wrong key passed
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize encryption operation
@@ -2950,7 +3038,7 @@ void testSetOperationState() {
         // Close session and open new one
         checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
 
         CK_RV rv8 = p11Func->C_SetOperationState(hSession, wrongKeyState, wrongKeyStateLen,
@@ -2962,12 +3050,12 @@ void testSetOperationState() {
     // Test Case 9: Argument error: nullptr state pointer
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     CK_RV rv9 = p11Func->C_SetOperationState(hSession, nullptr, 1024, 0, 0);
@@ -2976,12 +3064,12 @@ void testSetOperationState() {
     // Test Case 10: Memory-related errors
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Initialize digest operation
@@ -2997,7 +3085,7 @@ void testSetOperationState() {
         // Close session and open new one
         checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
 
         // Simulate memory error by corrupting state data
@@ -3030,7 +3118,7 @@ void testSignUpdate() {
     CK_SLOT_ID slots[1];
     CK_ULONG count = 1;
     p11Func->C_GetSlotList(TRUE, slots, &count);
-    p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
+    p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
     CK_RV rv2 = p11Func->C_SignUpdate(hSession, nullptr, 0);
     checkOperation(rv2, "Test 2: Sign update with nullptr data");
 }
@@ -3053,7 +3141,7 @@ void testSignFinal() {
     CK_SLOT_ID slots[1];
     CK_ULONG count = 1;
     p11Func->C_GetSlotList(TRUE, slots, &count);
-    p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
+    p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
     CK_RV rv2 = p11Func->C_SignFinal(hSession, nullptr, &sigLen);
     checkOperation(rv2, "Test 2: Sign final with nullptr signature buffer");
 }
@@ -3075,7 +3163,7 @@ void testSignRecoverInit() {
     CK_SLOT_ID slots[1];
     CK_ULONG count = 1;
     p11Func->C_GetSlotList(TRUE, slots, &count);
-    p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
+    p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
     CK_RV rv2 = p11Func->C_SignRecoverInit(hSession, nullptr, 0);
     checkOperation(rv2, "Test 2: Sign recover init with nullptr mechanism");
 }
@@ -3099,7 +3187,7 @@ void testSignRecover() {
     CK_SLOT_ID slots[1];
     CK_ULONG count = 1;
     p11Func->C_GetSlotList(TRUE, slots, &count);
-    p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
+    p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession);
     CK_RV rv2 = p11Func->C_SignRecover(hSession, nullptr, 0, signature, &sigLen);
     checkOperation(rv2, "Test 2: Sign recover with nullptr data");
 }
@@ -3117,16 +3205,17 @@ void testFinalize() {
 
     // Test Case 2: Finalize when not initialized
     resetState();
+    checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_RV rv2 = p11Func->C_Finalize(nullptr);
     checkOperation(rv2, "Test 2: Finalize when not initialized");
 
     // Test Case 3: Finalize after closing all sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_CloseAllSessions(0), "C_CloseAllSessions");
     CK_RV rv3 = p11Func->C_Finalize(nullptr);
@@ -3142,10 +3231,10 @@ void testFinalize() {
     // Test Case 5: Finalize with active sessions
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     CK_RV rv5 = p11Func->C_Finalize(nullptr);
     checkOperation(rv5, "Test 5: Finalize with active sessions");
@@ -3168,9 +3257,9 @@ void testFinalize() {
     // Test Case 8: Finalize with multiple slots
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open sessions on multiple slots if available
     for (CK_ULONG i = 0; i < slotCount && i < 3; i++) {
@@ -3185,10 +3274,10 @@ void testFinalize() {
     // Test Case 9: Finalize after operations
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Perform some operations
@@ -3249,10 +3338,10 @@ void testEncryptInit() {
     // Test Case 1: Calling C_EncryptInit with valid RSA mechanism and key on active session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -3297,10 +3386,10 @@ void testEncryptInit() {
     // Test Case 2: Calling C_EncryptInit with nullptr session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -3315,10 +3404,10 @@ void testEncryptInit() {
     // Test Case 3: Calling C_EncryptInit with invalid key handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     CK_RV rv3 = p11Func->C_EncryptInit(hSession, &encryptMech, 999);
@@ -3327,10 +3416,10 @@ void testEncryptInit() {
     // Test Case 4: Calling C_EncryptInit with nullptr mechanism pointer
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -3345,10 +3434,10 @@ void testEncryptInit() {
     // Test Case 5: Calling C_EncryptInit twice without finishing operation
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -3366,10 +3455,10 @@ void testEncryptInit() {
     // Test Case 6: Calling C_EncryptInit with non-encryption mechanism
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
     checkOperation(p11Func->C_GenerateKeyPair(hSession, &mech, pubTemplate,
@@ -3385,10 +3474,10 @@ void testEncryptInit() {
     // Test Case 7: Calling C_EncryptInit with a key of size outside allowed range
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -3422,10 +3511,10 @@ void testDigestUpdate() {
     // Test Case 1: Passing valid session handle and valid data
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     const char *pin = "123456";
@@ -3443,10 +3532,10 @@ void testDigestUpdate() {
     // Test Case 2: Calling C_DigestUpdate without calling C_DigestInit
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3457,10 +3546,10 @@ void testDigestUpdate() {
     // Test Case 3: Passing invalid session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3472,10 +3561,10 @@ void testDigestUpdate() {
     // Test Case 4: Passing nullptr data pointer with non-zero length
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3487,10 +3576,10 @@ void testDigestUpdate() {
     // Test Case 5: Passing nullptr data pointer with zero length
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3502,10 +3591,10 @@ void testDigestUpdate() {
     // Test Case 6: Calling C_DigestUpdate after C_DigestFinal
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3521,10 +3610,10 @@ void testDigestUpdate() {
     // Test Case 7: Digesting data too large for token buffer
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3553,10 +3642,10 @@ void testDigestKey() {
     // Test Case 1: Passing valid session handle and valid secret key object
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     const char *pin = "123456";
@@ -3594,10 +3683,10 @@ void testDigestKey() {
     // Test Case 2: Calling C_DigestKey without C_DigestInit
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3611,10 +3700,10 @@ void testDigestKey() {
     // Test Case 3: Passing invalid session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3629,10 +3718,10 @@ void testDigestKey() {
     // Test Case 4: Passing object handle that is not a secret key
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3661,10 +3750,10 @@ void testDigestKey() {
     // Test Case 5: Mechanism does not support C_DigestKey
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3682,10 +3771,10 @@ void testDigestKey() {
     // Test Case 6: Key object is sensitive or extractable = FALSE and not digestable
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3711,10 +3800,10 @@ void testDigestKey() {
     // Test Case 7: Digest operation already finalized
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3733,10 +3822,10 @@ void testDigestKey() {
     // Test Case 8: Calling with a nullptr key handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3748,10 +3837,10 @@ void testDigestKey() {
     // Test Case 9: Calling with a session in the wrong state
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_GenerateKey(hSession, &mech, keyTemplate,
@@ -3766,15 +3855,15 @@ void testDigestKey() {
     // Test Case 10: Passing a key handle from another session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Create two sessions
     CK_SESSION_HANDLE hSession1, hSession2;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession1), "C_OpenSession 1");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession2), "C_OpenSession 2");
 
     checkOperation(p11Func->C_Login(hSession1, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login 1");
@@ -3799,10 +3888,10 @@ void testDigestFinal() {
     // Test Case 1: Calling C_DigestFinal after valid C_DigestInit and optional C_DigestUpdate
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     const char *pin = "123456";
@@ -3825,10 +3914,10 @@ void testDigestFinal() {
     // Test Case 2: Calling C_DigestFinal without calling C_DigestInit
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3839,10 +3928,10 @@ void testDigestFinal() {
     // Test Case 3: Passing an invalid session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3854,10 +3943,10 @@ void testDigestFinal() {
     // Test Case 4: Passing nullptr pDigest but valid pointer to pulDigestLen
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3870,10 +3959,10 @@ void testDigestFinal() {
     // Test Case 5: Passing valid buffer but pulDigestLen too small
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3888,10 +3977,10 @@ void testDigestFinal() {
     // Test Case 6: Calling C_DigestFinal twice without calling C_DigestInit again
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3905,10 +3994,10 @@ void testDigestFinal() {
     // Test Case 7: Passing nullptr pulDigestLen
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3921,10 +4010,10 @@ void testDigestFinal() {
     // Test Case 8: Calling C_DigestFinal after session is closed
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3939,10 +4028,10 @@ void testDigestFinal() {
     // Test Case 9: Calling C_DigestFinal with no data updated
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3954,10 +4043,10 @@ void testDigestFinal() {
     // Test Case 10: Token/Device error during digest computation
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
@@ -3966,7 +4055,7 @@ void testDigestFinal() {
 
     // Simulate token error by closing session before finalizing
     checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -3982,9 +4071,9 @@ void testGetSlotInfo() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_ULONG slotCount = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     CK_SLOT_ID *slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_SLOT_INFO slotInfo;
     CK_RV rv1 = p11Func->C_GetSlotInfo(0, &slotInfo);
@@ -4000,9 +4089,9 @@ void testGetSlotInfo() {
     // Test Case 3: nullptr pointer for slot info
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_RV rv3 = p11Func->C_GetSlotInfo(0, nullptr);
     checkOperation(rv3, "Test 3: nullptr pointer for slot info");
@@ -4010,9 +4099,9 @@ void testGetSlotInfo() {
     // Test Case 4: Device or communication error
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate device error by finalizing before getting slot info
     checkOperation(p11Func->C_Finalize(nullptr), "C_Finalize");
@@ -4023,9 +4112,9 @@ void testGetSlotInfo() {
     // Test Case 5: Insufficient memory to store slot info
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate memory allocation failure by requesting an extremely large buffer
     CK_ULONG hugeCount = SIZE_MAX / sizeof(CK_SLOT_INFO) + 1;
@@ -4039,9 +4128,9 @@ void testGetSlotInfo() {
     // Test Case 6: General internal failure
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate internal failure by corrupting slot ID
     CK_SLOT_ID corruptedSlot = 0;
@@ -4053,9 +4142,9 @@ void testGetSlotInfo() {
     // Test Case 7: Successfully retrieving slot info for multiple slots
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
     CK_SLOT_INFO *slotInfos = (CK_SLOT_INFO *) malloc(slotCount * sizeof(CK_SLOT_INFO));
     CK_RV rv7 = p11Func->C_GetSlotInfo(0, &slotInfo);
     checkOperation(rv7, "Test 7: Successfully retrieving slot info for multiple slots");
@@ -4073,9 +4162,9 @@ void testGetTokenInfo() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_ULONG slotCount = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     CK_SLOT_ID *slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_TOKEN_INFO tokenInfo;
     CK_RV rv1 = p11Func->C_GetTokenInfo(0, &tokenInfo);
@@ -4084,9 +4173,9 @@ void testGetTokenInfo() {
     // Test Case 2: Empty but valid token field
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Create empty token info structure
     CK_TOKEN_INFO emptyTokenInfo;
@@ -4118,9 +4207,9 @@ void testGetTokenInfo() {
     // Test Case 5: Token not recognized
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate unrecognized token by corrupting slot ID
     CK_SLOT_ID corruptedSlot = 0;
@@ -4132,9 +4221,9 @@ void testGetTokenInfo() {
     // Test Case 6: Null pointer passed
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_RV rv6 = p11Func->C_GetTokenInfo(0, nullptr);
     checkOperation(rv6, "Test 6: Null pointer passed");
@@ -4142,9 +4231,9 @@ void testGetTokenInfo() {
     // Test Case 7: Token removed during function
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate token removal by finalizing before getting token info
     // checkOperation(p11Func->C_Finalize(nullptr), "C_Finalize");
@@ -4156,9 +4245,9 @@ void testGetTokenInfo() {
     // Test Case 8: Hardware or memory failure
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate hardware failure by requesting extremely large buffer
     CK_ULONG hugeCount = SIZE_MAX / sizeof(CK_TOKEN_INFO) + 1;
@@ -4263,9 +4352,9 @@ void testGetMechanismList() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_ULONG slotCount = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     CK_SLOT_ID *slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_ULONG mechanismCount = 0;
     CK_RV rv1 = p11Func->C_GetMechanismList(0, nullptr, &mechanismCount);
@@ -4274,9 +4363,9 @@ void testGetMechanismList() {
     // Test Case 2: Two-pass call: get count then list
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     mechanismCount = 0;
     checkOperation(p11Func->C_GetMechanismList(0, nullptr, &mechanismCount),
@@ -4292,9 +4381,9 @@ void testGetMechanismList() {
     // Test Case 3: One-pass call with correctly sized buffer
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_MECHANISM_TYPE onePassList[100]; // Assuming 100 is enough for all mechanisms
     CK_ULONG onePassCount = 100;
@@ -4324,9 +4413,9 @@ void testGetMechanismList() {
     // Test Case 6: No token in slot (with tokenPresent = TRUE)
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate no token by using a slot that might not have a token
     CK_MECHANISM_TYPE noTokenPresentList[100];
@@ -4337,9 +4426,9 @@ void testGetMechanismList() {
     // Test Case 7: Token not recognized
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate unrecognized token by corrupting slot ID
     CK_SLOT_ID corruptedSlot = 0;
@@ -4352,9 +4441,9 @@ void testGetMechanismList() {
     // Test Case 8: nullptr pulCount pointer
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_MECHANISM_TYPE nullCountList[100];
     CK_RV rv8 = p11Func->C_GetMechanismList(0, nullCountList, nullptr);
@@ -4363,9 +4452,9 @@ void testGetMechanismList() {
     // Test Case 9: Non-nullptr pMechanismList, but *pulCount too small
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_MECHANISM_TYPE smallList[1]; // Too small for all mechanisms
     CK_ULONG smallCount = 1;
@@ -4375,9 +4464,9 @@ void testGetMechanismList() {
     // Test Case 10: Memory or hardware failure
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate memory failure by requesting extremely large buffer
     CK_ULONG hugeCount = SIZE_MAX / sizeof(CK_MECHANISM_TYPE) + 1;
@@ -4416,9 +4505,9 @@ void testGetMechanismInfo() {
     // Test Case 2: Mechanism with flags like CKF_DIGEST, CKF_SIGN
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Test digest mechanism
     CK_MECHANISM_INFO digestInfo;
@@ -4433,9 +4522,9 @@ void testGetMechanismInfo() {
     // Test Case 3: Multiple valid mechanisms tested in loop
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Get list of supported mechanisms
     CK_ULONG mechCount = 0;
@@ -4476,9 +4565,9 @@ void testGetMechanismInfo() {
     // Test Case 6: Unsupported mechanism
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_MECHANISM_INFO unsupportedInfo;
     CK_RV rv6 = p11Func->C_GetMechanismInfo(0, 0xFFFFFFFF, &unsupportedInfo);
@@ -4487,9 +4576,9 @@ void testGetMechanismInfo() {
     // Test Case 7: Token not recognized
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate unrecognized token by corrupting slot ID
     CK_SLOT_ID corruptedSlot = 0;
@@ -4501,9 +4590,9 @@ void testGetMechanismInfo() {
     // Test Case 8: Null pInfo pointer
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     CK_RV rv8 = p11Func->C_GetMechanismInfo(0, CKM_SHA256_RSA_PKCS, nullptr);
     checkOperation(rv8, "Test 8: Null pInfo pointer");
@@ -4511,9 +4600,9 @@ void testGetMechanismInfo() {
     // Test Case 9: Token removed during function
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate token removal by finalizing before getting mechanism info
     checkOperation(p11Func->C_Finalize(nullptr), "C_Finalize");
@@ -4561,9 +4650,9 @@ void testInitToken() {
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_ULONG slotCount = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     CK_SLOT_ID *slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
     //CK_TOKEN_INFO tokenInfo;
     //checkOperation(p11Func->C_GetTokenInfo(0, &tokenInfo), "C_GetTokenInfo");
     //   printf("Token Information:\n");
@@ -4599,9 +4688,9 @@ void testInitToken() {
     // Test Case 2: Token label padded to 32 characters (required)
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     char paddedLabel[33] = "Test Token 2                    "; // 32 chars + null terminator
 
@@ -4632,9 +4721,9 @@ void testInitToken() {
     // Test Case 5: Token not recognized by library
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate unrecognized token by corrupting slot ID
     CK_SLOT_ID corruptedSlot = 0;
@@ -4647,9 +4736,9 @@ void testInitToken() {
     // Test Case 6: Write-protected token
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     char writeProtectedLabel[33] = "Test Token 6                    ";
     CK_RV rv6 = p11Func->C_InitToken(0, (CK_UTF8CHAR_PTR) pin, pinLen,
@@ -4659,9 +4748,9 @@ void testInitToken() {
     // Test Case 7: Incorrect existing SO PIN when reinitializing
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     const char *wrongPin = "wrongpin";
     CK_ULONG wrongPinLen = strlen(wrongPin);
@@ -4673,9 +4762,9 @@ void testInitToken() {
     // Test Case 8: SO PIN is locked
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate PIN lock by attempting multiple incorrect PINs
     for (int i = 0; i < 10; i++) {
@@ -4690,13 +4779,13 @@ void testInitToken() {
     // Test Case 9: Any session open on the token
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open a session
     CK_SESSION_HANDLE hSession;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     char sessionOpenLabel[33] = "Test Token 9                    ";
     CK_RV rv9 = p11Func->C_InitToken(0, (CK_UTF8CHAR_PTR) pin, pinLen,
@@ -4706,9 +4795,9 @@ void testInitToken() {
     // Test Case 10: pPin is NULL_PTR when no protected path is used
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     char nullPinLabel[33] = "Test Token 10                   ";
     CK_RV rv10 = p11Func->C_InitToken(0, nullptr, 0, (CK_UTF8CHAR_PTR) nullPinLabel);
@@ -4717,9 +4806,9 @@ void testInitToken() {
     // Test Case 11: pLabel not 32 characters or not padded with blanks
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     char shortLabel[20] = "Short Label"; // Less than 32 chars
     CK_RV rv11 = p11Func->C_InitToken(0, (CK_UTF8CHAR_PTR) pin, pinLen,
@@ -4729,9 +4818,9 @@ void testInitToken() {
     // Test Case 12: Function execution fails unexpectedly
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate unexpected failure by finalizing before init
     checkOperation(p11Func->C_Finalize(nullptr), "C_Finalize");
@@ -4743,9 +4832,9 @@ void testInitToken() {
     // Test Case 13: Device memory or internal failure
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Simulate memory failure by requesting extremely large buffer
     CK_ULONG hugeSize = SIZE_MAX;
@@ -4774,9 +4863,9 @@ return;
     CK_ULONG pinLen = strlen(pin);
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
     CK_TOKEN_INFO tokenInfo;
 
     CK_RV rv0 = p11Func->C_GetTokenInfo(0, &tokenInfo);
@@ -4812,13 +4901,13 @@ return;
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
     CK_ULONG slotCount = 0;
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     CK_SLOT_ID *slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open R/W session
     CK_SESSION_HANDLE hSession;
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
 
     // Login as SO
@@ -4834,12 +4923,12 @@ return;
     // Test Case 3: Simulate hardware/token failure
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -4852,12 +4941,12 @@ return;
     // Test Case 4: Simulate token memory exhaustion
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -4873,12 +4962,12 @@ return;
     // Test Case 5: Remove or unplug token during execution
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -4891,12 +4980,12 @@ return;
     // Test Case 6: Token returns general function failure
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -4909,12 +4998,12 @@ return;
     // Test Case 7: Internal library inconsistency
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -4928,12 +5017,12 @@ return;
     // Test Case 8: Host system memory exhaustion
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -4949,12 +5038,12 @@ return;
     // Test Case 9: PIN with illegal characters
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -4967,12 +5056,12 @@ return;
     // Test Case 10: PIN length outside allowed range
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -4997,12 +5086,12 @@ return;
     // Test Case 11: Session is closed
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session, login as SO, then close session
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -5014,12 +5103,12 @@ return;
     // Test Case 12: Read-only session
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open read-only session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
                    "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -5030,9 +5119,9 @@ return;
     // Test Case 13: Invalid session handle
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Use invalid session handle
     CK_SESSION_HANDLE invalidSession = 0xFFFFFFFF;
@@ -5042,12 +5131,12 @@ return;
     // Test Case 14: Write-protected token
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -5060,12 +5149,12 @@ return;
     // Test Case 15: nullptr PIN when no protected path
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
 
     // Open session and login as SO
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_UTF8CHAR_PTR) soPin, soPinLen),
                    "C_Login");
@@ -5091,10 +5180,10 @@ return;
     // Test Case 1: User is logged in, session is R/W, valid old PIN and valid new PIN within length constraints
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
 
     const char *oldPin = "123456";
     const char *newPin = "654321";
@@ -5114,10 +5203,10 @@ return;
     // Test Case 3: Simulate hardware/token failure during PIN update
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)newPin, newPinLen), "C_Login");
 
     // // Simulate hardware failure by finalizing
@@ -5128,10 +5217,10 @@ return;
     // Test Case 4: Token runs out of memory while processing the new PIN
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
 
     // // Create a very large PIN to simulate memory issues
@@ -5145,10 +5234,10 @@ return;
     // Test Case 5: Token is removed or ejected mid-operation
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
 
     // // Simulate token removal by finalizing
@@ -5159,10 +5248,10 @@ return;
     // Test Case 6: Unexpected internal token error during execution
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
 
     // // Simulate internal error by corrupting session handle
@@ -5173,10 +5262,10 @@ return;
     // Test Case 7: User cancels operation via PIN pad or UI cancel signal
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
 
     // // Simulate user cancellation by passing nullptr PIN
@@ -5186,10 +5275,10 @@ return;
     // Test Case 8: Provided old PIN is incorrect
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
 
     // const char *wrongOldPin = "wrongpin";
@@ -5198,10 +5287,10 @@ return;
     // Test Case 9: New PIN contains disallowed characters
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
 
     // const char *illegalPin = "!@#$%^&*()";
@@ -5211,10 +5300,10 @@ return;
     // Test Case 10: New PIN length outside allowed range
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // const char *pin = "1";
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)pin, strlen(pin)), "C_Login");
 
@@ -5234,10 +5323,10 @@ return;
     // Test Case 11: Too many failed attempts locked the PIN
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
 
     // // Simulate multiple failed attempts
@@ -5252,10 +5341,10 @@ return;
     // Test Case 12: Session was closed before the function was called
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
     // checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
 
@@ -5264,10 +5353,10 @@ return;
     // Test Case 13: Invalid session handle
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
     // CK_RV rv13 = p11Func->C_SetPIN(0xFFFBFFFA, (CK_UTF8CHAR_PTR)oldPin, oldPinLen, (CK_UTF8CHAR_PTR)newPin, newPinLen);
     // checkOperation(rv13, "Test 13: Invalid session handle");
@@ -5275,10 +5364,10 @@ return;
     // Test Case 14: Attempt to change PIN in a session opened without CKF_RW_SESSION flag
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
                    "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR) newPin, newPinLen),
                    "C_Login");
@@ -5290,10 +5379,10 @@ return;
     // Test Case 15: Token is write-protected
     // resetState();
     // checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     // slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-    // // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    // checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    // checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     // checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");
 
     // // Simulate write protection by finalizing
@@ -5304,10 +5393,10 @@ return;
     // Test Case 16: nullptr PIN pointers or invalid lengths
     /* resetState();
      checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-     // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+     checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
      slots = (CK_SLOT_ID *)malloc(slotCount * sizeof(CK_SLOT_ID));
-     // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-     checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+     checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+     checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
      checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_UTF8CHAR_PTR)oldPin, oldPinLen), "C_Login");*/
 
     // CK_RV rv16a = p11Func->C_SetPIN(hSession, nullptr, oldPinLen, (CK_UTF8CHAR_PTR)newPin, newPinLen);
@@ -5338,40 +5427,61 @@ void testCreateObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+         checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+         checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
         // Create template for data object
-        CK_OBJECT_HANDLE hObject;
-        CK_BYTE dataValue[] = "Test Data Object";
-        CK_OBJECT_CLASS ckoData = CKO_DATA;
-        CK_BBOOL trueVal = CK_TRUE;
-        CK_ATTRIBUTE template_[] = {
-                {CKA_CLASS,       &ckoData,                 sizeof(ckoData)},
-                {CKA_TOKEN,       &trueVal,                 sizeof(trueVal)},
-                {CKA_VALUE,       dataValue,                sizeof(dataValue)},
-                {CKA_APPLICATION, (CK_VOID_PTR) "Test App", 8}};
+//        CK_OBJECT_HANDLE hObject;
+//        CK_BYTE dataValue[] = "Test Data Object";
+//        CK_OBJECT_CLASS ckoData = CKO_DATA;
+//        CK_BBOOL trueVal = CK_FALSE;
+//        CK_ATTRIBUTE template_[] = {
+////                {CKA_CLASS,       &ckoData,                 sizeof(ckoData)},
+////                {CKA_TOKEN,       &trueVal,                 sizeof(trueVal)},
+////                {CKA_VALUE,       dataValue,                sizeof(dataValue)},
+////                {CKA_LABEL, (CK_VOID_PTR) "Test App", 8}
+//        };
+        CK_OBJECT_HANDLE
+                hData,
+                hCertificate,
+                hKey;
+        CK_OBJECT_CLASS
+                dataClass = CKO_DATA,
+                certificateClass = CKO_CERTIFICATE,
+                keyClass = CKO_PUBLIC_KEY;
+        CK_KEY_TYPE keyType = CKK_RSA;
+        CK_CHAR application[] = {"My Application"};
+        CK_BYTE dataValue[] = {"Sample Data Value"};
+        CK_BBOOL cktrue = CK_TRUE;
+        CK_ATTRIBUTE dataTemplate[] = {
+                {CKA_CLASS, &dataClass, sizeof(dataClass)},
+                {CKA_TOKEN, &cktrue, sizeof(true)},
+                {CKA_APPLICATION, application, sizeof(application)},
+                {CKA_VALUE, dataValue, sizeof(dataValue)}
+        };
 
-        checkOperation(p11Func->C_CreateObject(hSession, template_, 4, &hObject),
+
+        checkOperation(p11Func->C_CreateObject(hSession, dataTemplate, 4, &hData),
                        "Test 1: Create data object with valid data template");
     }
 
+    return;
     // Test Case 2: Create a certificate object with valid template
 
     {
         cout << "\nTest Case 2: Create certificate object with valid template" << endl;
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5398,11 +5508,11 @@ void testCreateObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5423,11 +5533,11 @@ void testCreateObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5444,11 +5554,11 @@ void testCreateObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5465,11 +5575,11 @@ void testCreateObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5488,10 +5598,10 @@ void testCreateObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-        checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
                        "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5510,11 +5620,11 @@ void testCreateObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
 
         CK_OBJECT_HANDLE hObject;
@@ -5533,11 +5643,11 @@ void testCreateObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5560,11 +5670,11 @@ void testCopyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5590,11 +5700,11 @@ void testCopyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5623,10 +5733,10 @@ void testCopyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-        checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
                        "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5653,11 +5763,11 @@ void testCopyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5671,11 +5781,11 @@ void testCopyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5700,11 +5810,11 @@ void testCopyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5732,11 +5842,11 @@ void testCopyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5765,11 +5875,11 @@ void testCopyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5805,11 +5915,11 @@ void testDestroyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create a session object to destroy
@@ -5831,11 +5941,11 @@ void testDestroyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5858,10 +5968,10 @@ void testDestroyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-        checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
                        "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5887,11 +5997,11 @@ void testDestroyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5916,11 +6026,11 @@ void testDestroyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5932,11 +6042,11 @@ void testDestroyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5960,11 +6070,11 @@ void testDestroyObject() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -5994,11 +6104,11 @@ void testGetObjectSize() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6025,11 +6135,11 @@ void testGetObjectSize() {
 
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         CK_ULONG size;
@@ -6041,11 +6151,11 @@ void testGetObjectSize() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6058,11 +6168,11 @@ void testGetObjectSize() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6088,11 +6198,11 @@ void testGetObjectSize() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6126,11 +6236,11 @@ void testGetAttributeValue() {
         cout << "\nTest Case 1: Valid session handle and handle to a valid public key" << endl;
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6200,11 +6310,11 @@ void testGetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6258,11 +6368,11 @@ void testGetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6292,11 +6402,11 @@ void testGetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6326,11 +6436,11 @@ void testGetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6345,11 +6455,11 @@ void testGetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6365,11 +6475,11 @@ void testGetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6398,11 +6508,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create a data object
@@ -6430,10 +6540,10 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-        checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION, nullptr, nullptr, &hSession),
                        "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6461,11 +6571,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6519,11 +6629,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create a data object
@@ -6551,11 +6661,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create a data object
@@ -6583,11 +6693,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create a data object
@@ -6615,11 +6725,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create a data object
@@ -6647,11 +6757,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6680,11 +6790,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6714,11 +6824,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create a data object
@@ -6747,11 +6857,11 @@ void testSetAttributeValue() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -6783,11 +6893,11 @@ void testFindObjectsInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         //cout << "Now the funtion wil start counter" << endl;
@@ -6802,11 +6912,11 @@ void testFindObjectsInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create template to search for data objects
@@ -6822,11 +6932,11 @@ void testFindObjectsInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         checkOperation(p11Func->C_FindObjectsInit(0xFFFFFFFF, nullptr, 0),
@@ -6837,11 +6947,11 @@ void testFindObjectsInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         checkOperation(p11Func->C_FindObjectsInit(hSession, nullptr, 0), "C_FindObjectsInit");
@@ -6853,11 +6963,11 @@ void testFindObjectsInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
@@ -6869,11 +6979,11 @@ void testFindObjectsInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         CK_ULONG invalidAttr = 0xFFFFFFFF;
@@ -6888,11 +6998,11 @@ void testFindObjectsInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create template with invalid attribute value
@@ -6908,11 +7018,11 @@ void testFindObjectsInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         checkOperation(p11Func->C_FindObjectsInit(hSession, nullptr, 0), "Test Case 8: Token removed");
@@ -6926,11 +7036,11 @@ void testFindObjects() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         // Create some test objects
@@ -6972,11 +7082,11 @@ void testFindObjects() {
         cout << "\nTest Case 2: Previous calls returned all matches" << endl;
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7005,11 +7115,11 @@ void testFindObjects() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7024,11 +7134,11 @@ void testFindObjects() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7042,11 +7152,11 @@ void testFindObjects() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_CloseSession(hSession), "C_CloseSession");
 
@@ -7060,11 +7170,11 @@ void testFindObjects() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7079,11 +7189,11 @@ void testFindObjects() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         checkOperation(p11Func->C_FindObjectsInit(hSession, nullptr, 0), "C_FindObjectsInit");
@@ -7101,11 +7211,11 @@ void testFindObjects() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         checkOperation(p11Func->C_FindObjectsInit(hSession, nullptr, 0), "C_FindObjectsInit");
@@ -7124,11 +7234,11 @@ void testFindObjectsFinal() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         CK_OBJECT_CLASS ckoData = CKO_DATA;
@@ -7142,11 +7252,11 @@ void testFindObjectsFinal() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         checkOperation(p11Func->C_FindObjectsFinal(hSession),
@@ -7156,11 +7266,11 @@ void testFindObjectsFinal() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -7177,11 +7287,11 @@ void testFindObjectsFinal() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         CK_OBJECT_CLASS keyClass = CKO_SECRET_KEY;
@@ -7197,11 +7307,11 @@ void testFindObjectsFinal() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         CK_OBJECT_CLASS ckoData = CKO_DATA;
@@ -7215,15 +7325,15 @@ void testFindObjectsFinal() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         // Initialize search with invalid template to force general failure
         CK_OBJECT_CLASS invalidClass = 0xFFFFFFFF;
@@ -7238,13 +7348,15 @@ void testGenerateKey() {
 
     cout << "\n=== Testing TestGenerateKey ===" << endl;
     resetState();
+    const char* sopin = "123456";
+    CK_ULONG sopLen = strlen(sopin);
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
-    checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
+    checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_BYTE_PTR) sopin, sopLen), "C_Login");
 
     // --- 6. Define the Key Generation Mechanism ---
     // We'll generate an AES key.
@@ -7313,10 +7425,10 @@ void testUnwrapKey() {
     resetState();
 
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7366,10 +7478,10 @@ void testDeriveKey() {
     resetState();
 
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7416,10 +7528,10 @@ void testDigestEncryptUpdate() {
     resetState();
 
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7478,10 +7590,10 @@ void testDecryptDigestUpdate() {
     cout << "\n=== Testing C_DecryptDigestUpdate ===" << endl;
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7539,10 +7651,10 @@ void testSignEncryptUpdate() {
     cout << "\n=== Testing C_SignEncryptUpdate ===" << endl;
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7597,10 +7709,10 @@ void testDecryptVerifyUpdate() {
     cout << "\n=== Testing C_DecryptVerifyUpdate ===" << endl;
     resetState();
     checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                           &hSession), "C_OpenSession");
     checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7663,11 +7775,11 @@ void testDecryptInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7693,11 +7805,11 @@ void testDecryptInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7728,11 +7840,11 @@ void testDecryptInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7752,11 +7864,11 @@ void testDecryptInit() {
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
 
         // Find a valid key handle first
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7806,13 +7918,15 @@ void testVerifyInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
-        checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
+        char *soPin = "12345678";
+        CK_ULONG soPinLen = strlen(soPin);
+        checkOperation(p11Func->C_Login(hSession, CKU_SO, (CK_BYTE_PTR) soPin, soPinLen), "C_Login");
 
         // Generate key pair for verification
         CK_MECHANISM keyGenMechanism = {CKM_RSA_PKCS_KEY_PAIR_GEN, nullptr, 0};
@@ -7852,11 +7966,11 @@ void testVerifyInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7870,11 +7984,11 @@ void testVerifyInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7887,11 +8001,11 @@ void testVerifyInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7934,11 +8048,11 @@ void testVerifyInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7951,11 +8065,11 @@ void testVerifyInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -7999,10 +8113,10 @@ void testVerifyInit() {
     //{
     //    resetState();
     //    checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-    //    // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+    //    checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
     //    slots = (CK_SLOT_ID*)malloc(slotCount * sizeof(CK_SLOT_ID));
-    //    // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
-    //    checkOperation(p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
+    //    checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+    //    checkOperation(p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr, &hSession), "C_OpenSession");
     //    checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR)pin, pLen), "C_Login");
 
     //    // Generate a symmetric key instead of RSA
@@ -8026,11 +8140,11 @@ void testVerifyInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8077,11 +8191,11 @@ void testVerifyInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8124,11 +8238,11 @@ void testVerifyInit() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8187,11 +8301,11 @@ void testVerify() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8236,11 +8350,11 @@ void testVerify() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8253,11 +8367,11 @@ void testVerify() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8287,11 +8401,11 @@ void testVerify() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8321,11 +8435,11 @@ void testVerify() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8355,11 +8469,11 @@ void testVerify() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8390,11 +8504,11 @@ void testVerify() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8429,11 +8543,11 @@ void testVerify() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8471,11 +8585,11 @@ void testDecrypt() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8536,11 +8650,11 @@ void testDecrypt() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8556,11 +8670,11 @@ void testDecrypt() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8622,11 +8736,11 @@ void testDecrypt() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 
@@ -8687,11 +8801,11 @@ void testDecrypt() {
     {
         resetState();
         checkOperation(p11Func->C_Initialize(nullptr), "C_Initialize");
-        // checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, nullptr, &slotCount), "C_GetSlotList");
         slots = (CK_SLOT_ID *) malloc(slotCount * sizeof(CK_SLOT_ID));
-        // checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
+        checkOperation(p11Func->C_GetSlotList(TRUE, slots, &slotCount), "C_GetSlotList");
         checkOperation(
-                p11Func->C_OpenSession(0, CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
+                p11Func->C_OpenSession(slots[0], CKF_SERIAL_SESSION | CKF_RW_SESSION, nullptr, nullptr,
                                        &hSession), "C_OpenSession");
         checkOperation(p11Func->C_Login(hSession, CKU_USER, (CK_BYTE_PTR) pin, pLen), "C_Login");
 

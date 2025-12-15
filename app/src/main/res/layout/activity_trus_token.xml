@@ -17,7 +17,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Detect Token"
-            android:layout_marginTop="40dp"
+            android:layout_marginTop="120dp"
             android:textSize="15sp" />
 
 
