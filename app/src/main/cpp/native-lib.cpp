@@ -792,7 +792,7 @@ int initCalled = 0;
 // JNI function implementations for PKCS11FunctionsActivity
 JNIEXPORT jstring JNICALL
 Java_com_example_trustoken_1starter_PKCS11FunctionsActivity_testFunctions(JNIEnv *env, jobject thiz,
-                                                                          jstring jFunctionName, jint file_descriptor) {
+                                                                          jstring jFunctionName) {
     StdoutCapture capture;
     if(initCalled == 0){
         init();
@@ -802,8 +802,8 @@ Java_com_example_trustoken_1starter_PKCS11FunctionsActivity_testFunctions(JNIEnv
     try {
         resetState(); // Make sure we start clean
         capture.clearBuffer();
-        int res = connect_usb(file_descriptor);
-        LOGE("connect_usb returned %d", res);
+//        int res = connect_usb(file_descriptor);
+//        LOGE("connect_usb returned %d", res);
 
         if (strcmp(functionName, "C_Initialize") == 0) testInitialize();
         else if (strcmp(functionName, "C_GetFunctionList") == 0) testGetFunctionList();
@@ -877,4 +877,11 @@ Java_com_example_trustoken_1starter_PKCS11FunctionsActivity_testFunctions(JNIEnv
 }
 
 
+JNIEXPORT jint JNICALL
+Java_com_example_trustoken_1starter_PKCS11FunctionsActivity_connectToken(JNIEnv *env, jobject thiz,
+                                                              jint file_descriptor) {
+    int res = connect_usb(file_descriptor);
+    LOGE("connect_usb returned %d", res);
+    return res;
+}
 } // extern "C"

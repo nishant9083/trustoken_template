@@ -135,10 +135,10 @@ class PKCS11FunctionsActivity : AppCompatActivity() {
     }
 
     private fun executeFunction(functionName: String, pin: String) {
-        val fileDescriptor = detectSmartCard()
-        Toast.makeText(this, "File Descriptor: $fileDescriptor", Toast.LENGTH_SHORT).show()
+//        val fileDescriptor = detectSmartCard()
+//        Toast.makeText(this, "File Descriptor: $fileDescriptor", Toast.LENGTH_SHORT).show()
 
-        val result = testFunctions(functionName, fileDescriptor)
+        val result = testFunctions(functionName)
         println(result);
 
         // Display the result
@@ -173,7 +173,8 @@ class PKCS11FunctionsActivity : AppCompatActivity() {
     }
 
     // Native function declarations
-    external fun testFunctions(functionName: String, fileDescriptor: Int): String
+    external fun testFunctions(functionName: String): String
+    external fun connectToken(fileDescriptor: Int): Int
 
     companion object {
         init {
